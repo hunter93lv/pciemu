@@ -13,11 +13,5 @@ qemu_dir := $(root_dir)/qemu
 qemu_build_include_dir := $(qemu_dir)/build
 qemu_include_dir := $(qemu_dir)/include
 
-test_dir := $(root_dir)/test
-test_include_dir := $(test_dir)/include
-fakes_dir := $(test_dir)/fakes
-
 build_dir := build
-
-fakes_build_dir := $(build_dir)/fakes
 

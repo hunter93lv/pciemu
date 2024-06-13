@@ -68,8 +68,8 @@ static long pciemu_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 		cmd, vaddr);
 	switch (cmd) {
 	case PCIEMU_IOCTL_DMA_TO_DEVICE:
-		pages_pinned = pin_user_pages_fast(vaddr, pages_nb_req,
-						   FOLL_LONGTERM,
+		pages_pinned = get_user_pages_fast(vaddr, pages_nb_req,
+						   0,
 						   &pciemu_dev->dma.page);
 		if (pages_pinned == pages_nb_req) {
 			pciemu_dma_from_host_to_device(
@@ -77,8 +77,8 @@ static long pciemu_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 		}
 		break;
 	case PCIEMU_IOCTL_DMA_FROM_DEVICE:
-		pages_pinned = pin_user_pages_fast(vaddr, pages_nb_req,
-						   FOLL_LONGTERM,
+		pages_pinned = get_user_pages_fast(vaddr, pages_nb_req,
+						   0,
 						   &pciemu_dev->dma.page);
 		if (pages_pinned == pages_nb_req) {
 			pciemu_dma_from_device_to_host(

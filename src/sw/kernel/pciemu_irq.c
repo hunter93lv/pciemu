@@ -21,7 +21,7 @@ static irqreturn_t pciemu_irq_handler(int irq, void *data)
 	dma_unmap_page((&pciemu_dev->pdev->dev), pciemu_dev->dma.dma_handle,
 		       pciemu_dev->dma.len, pciemu_dev->dma.direction);
 
-	unpin_user_page(pciemu_dev->dma.page);
+	put_page(pciemu_dev->dma.page);
 	/* Must do this ACK, or else the interrupt just keeps firing. */
 	iowrite32(1, pciemu_dev->irq.mmio_ack_irq);
 	return IRQ_HANDLED;

@@ -6,14 +6,17 @@
 # vim
 *.swp
 
-# qcow2 drivers
-*.qcow2
-
 # configurations
 *.conf
 
 # logs
 *.log
 
+*.qcow2*
+
 # build folders
 build/
+
+config
+
+images/

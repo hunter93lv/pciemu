@@ -1,12 +1,4 @@
 [submodule "qemu"]
 	path = qemu
-	url = https://github.com/luizinhosuraty/qemu.git
-	branch = latest
-[submodule "include/unitctest"]
-	path = include/unitctest
-	url = https://github.com/luizinhosuraty/unitctest.git
-	branch = release
-[submodule "include/fff"]
-	path = include/fff
-	url = https://github.com/luizinhosuraty/fff.git
-	branch = release
+	url = https://gitlab.com/qemu-project/qemu.git
+	branch = stable-8.0

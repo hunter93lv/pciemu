@@ -7,10 +7,10 @@
 
 obj-m += pciemu.o
 pciemu-objs += pciemu_module.o pciemu_dma.o pciemu_irq.o
-ccflags-y=-I/hostdir/include
+ccflags-y=-I/home/emu/pciemu/include/
 
 all:
-	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules
+	make -C /lib/modules/$(shell uname -r)/build M=$(shell pwd) modules
 
 clean:
-	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean
+	make -C /lib/modules/$(shell uname -r)/build M=$(shell pwd) clean

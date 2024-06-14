@@ -18,5 +18,5 @@
 build/
 
 config
-
+*.empty
 images/

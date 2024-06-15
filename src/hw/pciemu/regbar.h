@@ -6,20 +6,20 @@
  *
  */
 
-#ifndef PCIEMU_MMIO_H
-#define PCIEMU_MMIO_H
+#ifndef PCIEMU_REGBAR_H
+#define PCIEMU_REGBAR_H
 
 #include "pciemu.h"
 
 /* forward declaration (defined in pciemu.h) to avoid circular reference */
 typedef struct PCIEMUDevice PCIEMUDevice;
 
-void pciemu_mmio_reset(PCIEMUDevice *dev);
+void pciemu_regbar_reset(PCIEMUDevice *dev);
 
-void pciemu_mmio_init(PCIEMUDevice *dev, Error **errp);
+void pciemu_regbar_init(PCIEMUDevice *dev, Error **errp);
 
-void pciemu_mmio_fini(PCIEMUDevice *dev);
+void pciemu_regbar_fini(PCIEMUDevice *dev);
 
-extern const MemoryRegionOps pciemu_mmio_ops;
+extern const MemoryRegionOps pciemu_regbar_ops;
 
-#endif /* PCIEMU_MMIO_H */
+#endif /* PCIEMU_REGBAR_H */

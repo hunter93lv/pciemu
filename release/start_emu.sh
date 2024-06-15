@@ -24,7 +24,7 @@ QEMU_CORE_CNT=4
 QEMU_MEM_SIZE=8G
 GUEST_OS_USER=emu
 GUEST_OS_PASSWORD=emu
-ORIGINAL_IMAGE_PATH=huichao.lv@10.10.88.83:/home/huichao.lv/ubuntu1804.image.tar.gz
+ORIGINAL_IMAGE_PATH=root@39.103.98.210:/root/ubuntu1804.image.tar.gz
 
 source $REPOSITORY_DIR/utils/log.sh
 

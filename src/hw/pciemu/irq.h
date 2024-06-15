@@ -12,7 +12,9 @@
 #include "qemu/osdep.h"
 #include "hw/pci/pci.h"
 
-#define PCIEMU_IRQ_MAX_VECTORS 32
+#define PCIEMU_IRQ_MAX_VECTORS_MSI 32
+#define PCIEMU_IRQ_MAX_VECTORS_MSIX 2048
+
 
 /* forward declaration (defined in pciemu.h) to avoid circular reference */
 typedef struct PCIEMUDevice PCIEMUDevice;
@@ -24,8 +26,13 @@ typedef struct MSIVector {
 } MSIVector;
 
 typedef struct IRQStatusMSI {
-    MSIVector msi_vectors[PCIEMU_IRQ_MAX_VECTORS];
+    MSIVector msi_vectors[PCIEMU_IRQ_MAX_VECTORS_MSI];
 } IRQStatusMSI;
+
+typedef struct IRQStatusMSIX {
+    MSIVector msix_vectors[PCIEMU_IRQ_MAX_VECTORS_MSIX];
+} IRQStatusMSIX;
+
 
 typedef struct IRQStatusPin {
     /* our simple device has only one interrupt, a more complex one
@@ -39,6 +46,7 @@ typedef struct IRQStatusPin {
 /* IRQ status -> either msi or pin is being used */
 typedef struct IRQStatus {
     union {
+        IRQStatusMSIX msix;
         IRQStatusMSI msi;
         IRQStatusPin pin;
     } status;

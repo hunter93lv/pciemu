@@ -47,10 +47,13 @@ typedef struct PCIEMUDevice {
     DMAEngine dma;
 
     /* Memory Regions */
-    MemoryRegion mmio; /* BAR 0 (registers) */
+    MemoryRegion reg; /* BAR 0 (registers) */
+
+    /* Memory Regions */
+    MemoryRegion dmem; /* BAR 1 (memory) */
 
     /* Registers in BAR0 */
-    uint64_t reg[PCIEMU_HW_BAR0_REG_CNT];
+    uint64_t regs[PCIEMU_HW_BAR0_REG_CNT];
 } PCIEMUDevice;
 
 #endif /* PCIEMU_H */

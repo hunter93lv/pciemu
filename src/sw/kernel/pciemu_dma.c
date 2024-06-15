@@ -25,7 +25,7 @@ int pciemu_dma_from_host_to_device(struct pciemu_dev *pciemu_dev,
 				   struct page *page, size_t ofs, size_t len)
 {
 	struct pci_dev *pdev = pciemu_dev->pdev;
-	void __iomem *mmio = pciemu_dev->bar.mmio;
+	void __iomem *mmio = pciemu_dev->regbar.mmio;
 	pciemu_dma_struct_init(&pciemu_dev->dma, ofs, len, DMA_TO_DEVICE);
 	pciemu_dev->dma.dma_handle =
 		dma_map_page(&(pdev->dev), page, pciemu_dev->dma.offset,
@@ -52,7 +52,7 @@ int pciemu_dma_from_device_to_host(struct pciemu_dev *pciemu_dev,
 				   struct page *page, size_t ofs, size_t len)
 {
 	struct pci_dev *pdev = pciemu_dev->pdev;
-	void __iomem *mmio = pciemu_dev->bar.mmio;
+	void __iomem *mmio = pciemu_dev->regbar.mmio;
 	pciemu_dma_struct_init(&pciemu_dev->dma, ofs, len, DMA_FROM_DEVICE);
 	pciemu_dev->dma.dma_handle =
 		dma_map_page(&(pdev->dev), page, pciemu_dev->dma.offset,

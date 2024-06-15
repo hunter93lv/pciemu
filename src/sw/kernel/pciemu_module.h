@@ -41,7 +41,9 @@ struct pciemu_dev {
 	 * We could have an array of size PCI_STD_NUM_BARS to
 	 * hold information about all bars.
 	 */
-	struct pciemu_bar bar;
+	struct pciemu_bar regbar;
+
+	struct pciemu_bar membar;
 	/* Only one IRQ is used in this simple device :
 	 *  - IRQ to inform that DMA has finished
 	 * We could also have an array here to describe more IRQs

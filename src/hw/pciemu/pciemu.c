@@ -18,7 +18,9 @@
 #include "pciemu_hw.h"
 #include "dma.h"
 #include "irq.h"
-#include "mmio.h"
+#include "regbar.h"
+#include "membar.h"
+
 
 /* -----------------------------------------------------------------------------
  *  Internal functions
@@ -32,9 +34,10 @@
  */
 static void pciemu_reset(PCIEMUDevice *dev)
 {
+    pciemu_regbar_reset(dev);
+    pciemu_membar_reset(dev);
     pciemu_irq_reset(dev);
     pciemu_dma_reset(dev);
-    pciemu_mmio_reset(dev);
 }
 
 /* -----------------------------------------------------------------------------
@@ -56,9 +59,10 @@ static void pciemu_reset(PCIEMUDevice *dev)
 static void pciemu_device_init(PCIDevice *pci_dev, Error **errp)
 {
     PCIEMUDevice *dev = PCIEMU_DEVICE(pci_dev);
+    pciemu_regbar_init(dev, errp);
+    pciemu_membar_init(dev, errp);
     pciemu_irq_init(dev, errp);
     pciemu_dma_init(dev, errp);
-    pciemu_mmio_init(dev, errp);
 }
 
 /**
@@ -74,9 +78,10 @@ static void pciemu_device_init(PCIDevice *pci_dev, Error **errp)
 static void pciemu_device_fini(PCIDevice *pci_dev)
 {
     PCIEMUDevice *dev = PCIEMU_DEVICE(pci_dev);
-    pciemu_irq_fini(dev);
     pciemu_dma_fini(dev);
-    pciemu_mmio_fini(dev);
+    pciemu_irq_fini(dev);
+    pciemu_membar_fini(dev);
+    pciemu_regbar_fini(dev);
 }
 
 /**

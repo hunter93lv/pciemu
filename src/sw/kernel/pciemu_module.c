@@ -35,7 +35,7 @@ static int pciemu_open(struct inode *inode, struct file *fp)
 	/* Only BAR 0 operations */
 	if (bar != PCIEMU_HW_BAR0)
 		return -ENXIO;
-	if (pciemu_dev->bar.len == 0)
+	if (pciemu_dev->regbar.len == 0)
 		return -EIO;
 	fp->private_data = pciemu_dev;
 	return 0;
@@ -45,8 +45,8 @@ static int pciemu_mmap(struct file *fp, struct vm_area_struct *vma)
 {
 	int ret = 0;
 	struct pciemu_dev *pciemu_dev = fp->private_data;
-	unsigned long pfn = pciemu_dev->bar.start >> PAGE_SHIFT;
-	if (vma->vm_end - vma->vm_start > pciemu_dev->bar.len)
+	unsigned long pfn = pciemu_dev->regbar.start >> PAGE_SHIFT;
+	if (vma->vm_end - vma->vm_start > pciemu_dev->regbar.len)
 		return -EIO;
 	ret = io_remap_pfn_range(vma, vma->vm_start, pfn,
 				 vma->vm_end - vma->vm_start,
@@ -100,25 +100,40 @@ static const struct file_operations pciemu_fops = {
 
 static void pciemu_dev_clean(struct pciemu_dev *pciemu_dev)
 {
-	pciemu_dev->bar.start = 0;
-	pciemu_dev->bar.end = 0;
-	pciemu_dev->bar.len = 0;
-	if (pciemu_dev->bar.mmio)
-		pci_iounmap(pciemu_dev->pdev, pciemu_dev->bar.mmio);
+	pciemu_dev->regbar.start = 0;
+	pciemu_dev->regbar.end = 0;
+	pciemu_dev->regbar.len = 0;
+	if (pciemu_dev->regbar.mmio)
+		pci_iounmap(pciemu_dev->pdev, pciemu_dev->regbar.mmio);
+
+	pciemu_dev->membar.start = 0;
+	pciemu_dev->membar.end = 0;
+	pciemu_dev->membar.len = 0;
+	if (pciemu_dev->membar.mmio)
+		pci_iounmap(pciemu_dev->pdev, pciemu_dev->membar.mmio);
 }
 
 static int pciemu_dev_init(struct pciemu_dev *pciemu_dev, struct pci_dev *pdev)
 {
-	const unsigned int bar = PCIEMU_HW_BAR0;
 	pciemu_dev->pdev = pdev;
 
 	/* Initialize struct with BAR 0 info */
-	pciemu_dev->bar.start = pci_resource_start(pdev, bar);
-	pciemu_dev->bar.end = pci_resource_end(pdev, bar);
-	pciemu_dev->bar.len = pci_resource_len(pdev, bar);
-	pciemu_dev->bar.mmio = pci_iomap(pdev, bar, pciemu_dev->bar.len);
-	if (!pciemu_dev->bar.mmio) {
-		dev_err(&(pdev->dev), "cannot map BAR %u\n", bar);
+	pciemu_dev->regbar.start = pci_resource_start(pdev, PCIEMU_HW_BAR0);
+	pciemu_dev->regbar.end = pci_resource_end(pdev, PCIEMU_HW_BAR0);
+	pciemu_dev->regbar.len = pci_resource_len(pdev, PCIEMU_HW_BAR0);
+	pciemu_dev->regbar.mmio = pci_iomap(pdev, PCIEMU_HW_BAR0, pciemu_dev->regbar.len);
+	if (!pciemu_dev->regbar.mmio) {
+		dev_err(&(pdev->dev), "cannot map BAR %u\n", PCIEMU_HW_BAR0);
+		pciemu_dev_clean(pciemu_dev);
+		return -ENOMEM;
+	}
+
+	pciemu_dev->membar.start = pci_resource_start(pdev, PCIEMU_HW_BAR1);
+	pciemu_dev->membar.end = pci_resource_end(pdev, PCIEMU_HW_BAR1);
+	pciemu_dev->membar.len = pci_resource_len(pdev, PCIEMU_HW_BAR1);
+	pciemu_dev->membar.mmio = pci_iomap(pdev, PCIEMU_HW_BAR1, pciemu_dev->membar.len);
+	if (!pciemu_dev->membar.mmio) {
+		dev_err(&(pdev->dev), "cannot map BAR %u\n", PCIEMU_HW_BAR1);
 		pciemu_dev_clean(pciemu_dev);
 		return -ENOMEM;
 	}
@@ -175,6 +190,7 @@ static int pciemu_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 		dev_err(&(pdev->dev), "pci_select_bars: bar0 not available\n");
 		goto err_select_region;
 	}
+
 	err = pci_request_selected_regions(pdev, mem_bars,
 					   "pciemu_device_bars");
 	if (err) {
@@ -206,11 +222,12 @@ static int pciemu_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	/* add major/min range to cdev */
 	err = cdev_add(&pciemu_dev->cdev,
 		       MKDEV(pciemu_dev->major, pciemu_dev->minor),
-		       PCIEMU_HW_BAR_CNT);
+		       1);
 	if (err) {
 		dev_err(&(pdev->dev), "cdev_add failed\n");
 		goto err_cdev_add;
 	}
+
 
 	/* create /dev/ node via udev */
 	dev = device_create(pciemu_class, &pdev->dev,
@@ -218,7 +235,7 @@ static int pciemu_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 			    pciemu_dev, "d%xb%xd%xf%x_bar%u",
 			    pci_domain_nr(pdev->bus), pdev->bus->number,
 			    PCI_SLOT(pdev->devfn), PCI_FUNC(pdev->devfn),
-			    PCIEMU_HW_BAR0);
+			    0);
 	if (IS_ERR(dev)) {
 		err = PTR_ERR(dev);
 		dev_err(&(pdev->dev), "device_create failed\n");

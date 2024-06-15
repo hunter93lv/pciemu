@@ -79,11 +79,71 @@ static int pciemu_irq_enable_msi(struct pciemu_dev *pciemu_dev)
 	}
 
 	pciemu_dev->irq.mmio_ack_irq =
-		pciemu_dev->bar.mmio + PCIEMU_HW_IRQ_DMA_ACK_ADDR;
+		pciemu_dev->regbar.mmio + PCIEMU_HW_IRQ_DMA_ACK_ADDR;
+	return 0;
+}
+
+static int pciemu_irq_enable_msix(struct pciemu_dev *pciemu_dev)
+{
+	int msix_vecs_req;
+	int msix_vecs;
+	int err;
+
+	/*
+	 * Reserve the max msi vectors we might need
+	 */
+	msix_vecs_req = min_t(int, pci_msix_vec_count(pciemu_dev->pdev),
+			     num_online_cpus() + 1);
+	dev_dbg(&pciemu_dev->pdev->dev,
+		"Trying to enable MSIX, requesting %d vectors\n", msix_vecs_req);
+
+	msix_vecs = pci_alloc_irq_vectors(pciemu_dev->pdev, msix_vecs_req,
+					 msix_vecs_req, PCI_IRQ_MSIX);
+
+	if (msix_vecs < 0) {
+		dev_err(&pciemu_dev->pdev->dev,
+			"pciemu_irq_enable_msix failed, vectors %d\n", msix_vecs);
+		return -ENOSPC;
+	}
+
+	if (msix_vecs != msix_vecs_req) {
+		pci_free_irq_vectors(pciemu_dev->pdev);
+		dev_err(&pciemu_dev->pdev->dev,
+			"allocated %d MSIX (out of %d requested)\n", msix_vecs,
+			msix_vecs_req);
+		return -ENOSPC;
+	}
+
+	pciemu_dev->irq.irq_num = pci_irq_vector(
+		pciemu_dev->pdev, PCIEMU_HW_IRQ_DMA_ENDED_VECTOR);
+	if (pciemu_dev->irq.irq_num < 0) {
+		pci_free_irq_vectors(pciemu_dev->pdev);
+		dev_err(&pciemu_dev->pdev->dev, "vector %d out of range\n",
+			PCIEMU_HW_IRQ_DMA_ENDED_VECTOR);
+		return -EINVAL;
+	}
+
+	err = request_irq(pciemu_dev->irq.irq_num, pciemu_irq_handler,
+			  PCIEMU_HW_IRQ_DMA_ENDED_VECTOR,
+			  "pciemu_irq_dma_ended", pciemu_dev);
+	if (err) {
+		dev_err(&pciemu_dev->pdev->dev,
+			"failed to request irq %s (%d)\n",
+			"pciemu_irq_dma_ended", err);
+		pci_free_irq_vectors(pciemu_dev->pdev);
+		return err;
+	}
+
+	pciemu_dev->irq.mmio_ack_irq =
+		pciemu_dev->regbar.mmio + PCIEMU_HW_IRQ_DMA_ACK_ADDR;
 	return 0;
 }
 
 int pciemu_irq_enable(struct pciemu_dev *pciemu_dev)
 {
-	return pciemu_irq_enable_msi(pciemu_dev);
+	if (pci_find_capability(pciemu_dev->pdev, PCI_CAP_ID_MSIX))
+		return pciemu_irq_enable_msix(pciemu_dev);
+
+	if (pci_find_capability(pciemu_dev->pdev, PCI_CAP_ID_MSI))
+		return pciemu_irq_enable_msi(pciemu_dev);
 }

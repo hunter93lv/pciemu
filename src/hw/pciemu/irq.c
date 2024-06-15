@@ -18,6 +18,35 @@
  */
 
 /**
+ * pciemu_irq_init_msix: IRQ initialization in MSI-X mode
+ *
+ * Initialize the prefered MSI-X mode if the host is able to handle MSI-X.
+ *
+ * @dev: Instance of PCIEMUDevice object being initialized
+ * @errp: pointer to indicate errors
+ */
+static inline void pciemu_irq_init_msix(PCIEMUDevice *dev, Error **errp)
+{
+    int i;
+    int rc;
+
+    rc = msix_init(&dev->pci_dev, PCIEMU_HW_IRQ_MSIX_CNT, &dev->reg, PCIEMU_HW_BAR0,
+                   PCIEMU_HW_BAR0_MSIX_TABLE, &dev->reg, PCIEMU_HW_BAR0,
+                   PCIEMU_HW_BAR0_MSIX_PBA, 0, errp);
+
+    if (rc < 0) {
+        qemu_log_mask(LOG_GUEST_ERROR, "Failed to initialize MSI-X");
+        return;
+    }
+
+    for (i = 0; i < PCIEMU_HW_IRQ_MSIX_CNT; i++) {
+        msix_vector_use(&dev->pci_dev, i);
+    }
+
+    return;
+}
+
+/**
  * pciemu_irq_init_msi: IRQ initialization in MSI mode
  *
  * Initialize the prefered MSI mode if the host is able to handle MSI.
@@ -76,12 +105,28 @@ static inline void pciemu_irq_raise_intx(PCIEMUDevice *dev)
  */
 static inline void pciemu_irq_raise_msi(PCIEMUDevice *dev, unsigned int vector)
 {
-    if (vector >= PCIEMU_IRQ_MAX_VECTORS)
+    if (vector >= PCIEMU_IRQ_MAX_VECTORS_MSI)
         return;
     MSIVector *msi_vector = &dev->irq.status.msi.msi_vectors[vector];
 
     msi_vector->raised = true;
     msi_notify(&dev->pci_dev, vector);
+}
+
+/**
+ * pciemu_irq_raise_msix: Raise the IRQ if MSI-X is enabled
+ *
+ * @dev: Instance of PCIEMUDevice object
+ * @vector: the IRQ vector being raised
+ */
+static inline void pciemu_irq_raise_msix(PCIEMUDevice *dev, unsigned int vector)
+{
+    if (vector >= PCIEMU_IRQ_MAX_VECTORS_MSIX)
+        return;
+    MSIVector *msix_vector = &dev->irq.status.msix.msix_vectors[vector];
+
+    msix_vector->raised = true;
+    msix_notify(&dev->pci_dev, vector);
 }
 
 /**
@@ -103,12 +148,28 @@ static inline void pciemu_irq_lower_intx(PCIEMUDevice *dev)
  */
 static inline void pciemu_irq_lower_msi(PCIEMUDevice *dev, unsigned int vector)
 {
-    if (vector >= PCIEMU_IRQ_MAX_VECTORS)
+    if (vector >= PCIEMU_IRQ_MAX_VECTORS_MSI)
         return;
     MSIVector *msi_vector = &dev->irq.status.msi.msi_vectors[vector];
     if (!msi_vector->raised)
         return;
     msi_vector->raised = false;
+}
+
+/**
+ * pciemu_irq_lower_msix: Lower the IRQ if MSI-X is enabled
+ *
+ * @dev: Instance of PCIEMUDevice object
+ * @vector: the IRQ vector being lowered
+ */
+static inline void pciemu_irq_lower_msix(PCIEMUDevice *dev, unsigned int vector)
+{
+    if (vector >= PCIEMU_IRQ_MAX_VECTORS_MSIX)
+        return;
+    MSIVector *msix_vector = &dev->irq.status.msix.msix_vectors[vector];
+    if (!msix_vector->raised)
+        return;
+    msix_vector->raised = false;
 }
 
 /* -----------------------------------------------------------------------------
@@ -126,13 +187,21 @@ static inline void pciemu_irq_lower_msi(PCIEMUDevice *dev, unsigned int vector)
  */
 void pciemu_irq_raise(PCIEMUDevice *dev, unsigned int vector)
 {
-    /* If no MSI available on host, we should fallback to pin IRQ assertion */
-    if (!msi_enabled(&dev->pci_dev)) {
-        pciemu_irq_raise_intx(dev);
+    /* MSI-X is available */
+    if (msix_enabled(&dev->pci_dev)) {
+        pciemu_irq_raise_msix(dev, vector);
         return;
     }
+
     /* MSI is available */
-    pciemu_irq_raise_msi(dev, vector);
+    if (msi_enabled(&dev->pci_dev)) {
+        pciemu_irq_raise_msi(dev, vector);
+        return;
+    }
+
+    /* If no MSI-X & MSI available on host, we should fallback to pin IRQ assertion */
+    pciemu_irq_raise_intx(dev);
+    return;
 }
 
 /**
@@ -145,13 +214,21 @@ void pciemu_irq_raise(PCIEMUDevice *dev, unsigned int vector)
  */
 void pciemu_irq_lower(PCIEMUDevice *dev, unsigned int vector)
 {
-    /* If no MSI available on host, we should fallback to pin IRQ assertion */
-    if (!msi_enabled(&dev->pci_dev)) {
-        pciemu_irq_lower_intx(dev);
+    /* MSI-X is available */
+    if (msix_enabled(&dev->pci_dev)) {
+        pciemu_irq_lower_msix(dev, vector);
         return;
     }
+
     /* MSI is available */
-    pciemu_irq_lower_msi(dev, vector);
+    if (msi_enabled(&dev->pci_dev)) {
+        pciemu_irq_lower_msi(dev, vector);
+        return;
+    }
+
+    /* If no MSI-X & MSI available on host, we should fallback to pin IRQ assertion */
+    pciemu_irq_lower_intx(dev);
+    return;
 }
 
 /**
@@ -163,8 +240,23 @@ void pciemu_irq_lower(PCIEMUDevice *dev, unsigned int vector)
  */
 void pciemu_irq_reset(PCIEMUDevice *dev)
 {
-    for (int i = PCIEMU_HW_IRQ_VECTOR_START; i <= PCIEMU_HW_IRQ_VECTOR_END; ++i)
-        pciemu_irq_lower(dev, i);
+    /* MSI-X is available */
+    if (msix_enabled(&dev->pci_dev)) {
+        for (int i = PCIEMU_HW_IRQ_MSIX_VECTOR_START; i <= PCIEMU_HW_IRQ_MSIX_VECTOR_END; ++i)
+            pciemu_irq_lower_msix(dev, i);
+        return;
+    }
+
+    /* MSI is available */
+    if (msi_enabled(&dev->pci_dev)) {
+        for (int i = PCIEMU_HW_IRQ_VECTOR_START; i <= PCIEMU_HW_IRQ_VECTOR_END; ++i)
+            pciemu_irq_lower_msi(dev, i);
+        return;
+    }
+
+    /* If no MSI-X & MSI available on host, we should fallback to pin IRQ assertion */
+    pciemu_irq_lower_intx(dev);
+    return;
 }
 
 /**
@@ -181,8 +273,10 @@ void pciemu_irq_init(PCIEMUDevice *dev, Error **errp)
 {
     /* configure line based interrupt if fallback is needed */
     pciemu_irq_init_intx(dev, errp);
-    /* try to confingure MSI based interrupt (preferred) */
+    /* try to confingure MSI based interrupt */
     pciemu_irq_init_msi(dev, errp);
+    /* try to confingure MSI-X based interrupt (preferred) */
+    pciemu_irq_init_msix(dev, errp);
 }
 
 /**
@@ -198,4 +292,5 @@ void pciemu_irq_fini(PCIEMUDevice *dev)
 {
     pciemu_irq_reset(dev);
     msi_uninit(&dev->pci_dev);
+    msix_uninit(&dev->pci_dev);
 }

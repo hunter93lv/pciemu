@@ -2,7 +2,8 @@ pciemu_ss = ss.source_set()
 pciemu_ss.add(files(
     'dma.c',
     'irq.c',
-    'mmio.c',
+    'regbar.c',
+    'membar.c',
     'pciemu.c',
 ))
 

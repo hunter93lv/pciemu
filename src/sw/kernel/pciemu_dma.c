@@ -12,6 +12,7 @@
 #include <linux/dma-mapping.h>
 #include "pciemu_module.h"
 #include "hw/pciemu_hw.h"
+#include <linux/completion.h>
 
 static void pciemu_dma_struct_init(struct pciemu_dma *dma, size_t ofs,
 				   size_t len, enum dma_data_direction drctn)
@@ -19,6 +20,7 @@ static void pciemu_dma_struct_init(struct pciemu_dma *dma, size_t ofs,
 	dma->offset = ofs;
 	dma->len = len;
 	dma->direction = drctn;
+	init_completion(&dma->completion);
 }
 
 int pciemu_dma_from_host_to_device(struct pciemu_dev *pciemu_dev,
@@ -26,12 +28,15 @@ int pciemu_dma_from_host_to_device(struct pciemu_dev *pciemu_dev,
 {
 	struct pci_dev *pdev = pciemu_dev->pdev;
 	void __iomem *mmio = pciemu_dev->regbar.mmio;
+	mutex_lock(&pciemu_dev->dma.mtx);
 	pciemu_dma_struct_init(&pciemu_dev->dma, ofs, len, DMA_TO_DEVICE);
 	pciemu_dev->dma.dma_handle =
 		dma_map_page(&(pdev->dev), page, pciemu_dev->dma.offset,
 			     pciemu_dev->dma.len, pciemu_dev->dma.direction);
-	if (dma_mapping_error(&(pdev->dev), pciemu_dev->dma.dma_handle))
+	if (dma_mapping_error(&(pdev->dev), pciemu_dev->dma.dma_handle)) {
+		mutex_unlock(&pciemu_dev->dma.mtx);
 		return -ENOMEM;
+	}
 	dev_dbg(&(pdev->dev), "dma_handle_from = %llx\n",
 		(unsigned long long)pciemu_dev->dma.dma_handle);
 	dev_dbg(&(pdev->dev), "cmd = %x\n", PCIEMU_HW_DMA_DIRECTION_TO_DEVICE);
@@ -44,6 +49,8 @@ int pciemu_dma_from_host_to_device(struct pciemu_dev *pciemu_dev,
 	iowrite32(PCIEMU_HW_DMA_DIRECTION_TO_DEVICE,
 		  mmio + PCIEMU_HW_BAR0_DMA_CFG_CMD);
 	iowrite32(1, mmio + PCIEMU_HW_BAR0_DMA_DOORBELL_RING);
+	wait_for_completion(&pciemu_dev->dma.completion);
+	mutex_unlock(&pciemu_dev->dma.mtx);
 	dev_dbg(&(pdev->dev), "done host->device...\n");
 	return 0;
 }
@@ -53,12 +60,15 @@ int pciemu_dma_from_device_to_host(struct pciemu_dev *pciemu_dev,
 {
 	struct pci_dev *pdev = pciemu_dev->pdev;
 	void __iomem *mmio = pciemu_dev->regbar.mmio;
+	mutex_lock(&pciemu_dev->dma.mtx);
 	pciemu_dma_struct_init(&pciemu_dev->dma, ofs, len, DMA_FROM_DEVICE);
 	pciemu_dev->dma.dma_handle =
 		dma_map_page(&(pdev->dev), page, pciemu_dev->dma.offset,
 			     pciemu_dev->dma.len, pciemu_dev->dma.direction);
-	if (dma_mapping_error(&(pdev->dev), pciemu_dev->dma.dma_handle))
+	if (dma_mapping_error(&(pdev->dev), pciemu_dev->dma.dma_handle)) {
+		mutex_unlock(&pciemu_dev->dma.mtx);
 		return -ENOMEM;
+	}
 	dev_dbg(&(pdev->dev), "dma_handle_to = %llx\n",
 		(unsigned long long)pciemu_dev->dma.dma_handle);
 	dev_dbg(&(pdev->dev), "cmd = %x\n",
@@ -72,6 +82,8 @@ int pciemu_dma_from_device_to_host(struct pciemu_dev *pciemu_dev,
 	iowrite32(PCIEMU_HW_DMA_DIRECTION_FROM_DEVICE,
 		  mmio + PCIEMU_HW_BAR0_DMA_CFG_CMD);
 	iowrite32(1, mmio + PCIEMU_HW_BAR0_DMA_DOORBELL_RING);
+	wait_for_completion(&pciemu_dev->dma.completion);
+	mutex_unlock(&pciemu_dev->dma.mtx);
 	dev_dbg(&(pdev->dev), "done device->host...\n\n");
 	return 0;
 }

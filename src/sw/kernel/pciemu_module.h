@@ -28,6 +28,8 @@ struct pciemu_dma {
 	size_t len;
 	enum dma_data_direction direction;
 	struct page *page;
+	struct completion completion;
+	struct mutex mtx;
 };
 
 struct pciemu_irq {

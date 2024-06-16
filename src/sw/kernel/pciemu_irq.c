@@ -10,6 +10,8 @@
 #include "hw/pciemu_hw.h"
 #include "pciemu_module.h"
 #include <linux/pci.h>
+#include <linux/completion.h>
+
 
 static irqreturn_t pciemu_irq_handler(int irq, void *data)
 {
@@ -24,6 +26,7 @@ static irqreturn_t pciemu_irq_handler(int irq, void *data)
 	put_page(pciemu_dev->dma.page);
 	/* Must do this ACK, or else the interrupt just keeps firing. */
 	iowrite32(1, pciemu_dev->irq.mmio_ack_irq);
+	complete_all(&pciemu_dev->dma.completion);
 	return IRQ_HANDLED;
 }
 

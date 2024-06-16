@@ -249,6 +249,8 @@ static int pciemu_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 		goto err_irq_enable;
 	}
 
+	mutex_init(&pciemu_dev->dma.mtx);
+
 	dev_info(&(pdev->dev), "pciemu probe - success\n");
 
 	return 0;

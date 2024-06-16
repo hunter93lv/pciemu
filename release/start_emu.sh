@@ -24,6 +24,13 @@ QEMU_CORE_CNT=4
 QEMU_MEM_SIZE=8G
 GUEST_OS_USER=emu
 GUEST_OS_PASSWORD=emu
+#
+#Well-known ports: 0 to 1023
+#Registered ports: 1024 to 49151
+#Dynamic and/or private ports: 49152 to 65535
+#
+VALID_PORT_START=1024
+VALID_PORT_END=65535
 ORIGINAL_IMAGE_PATH=root@39.103.98.210:/root/ubuntu1804.image.tar.gz
 
 source $REPOSITORY_DIR/utils/log.sh
@@ -56,7 +63,7 @@ function get_random_port() {
 
 
 rm -rf $QEMU_TCP_PORT_SSH_TMP_FILE
-QEMU_TCP_PORT_SSH=$(get_random_port 1 10000)
+QEMU_TCP_PORT_SSH=$(get_random_port $VALID_PORT_START $VALID_PORT_END)
 echo ${QEMU_TCP_PORT_SSH} > ${QEMU_TCP_PORT_SSH_TMP_FILE}
 
 sudo chmod 666 /dev/kvm

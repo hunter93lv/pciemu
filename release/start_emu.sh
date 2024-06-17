@@ -25,9 +25,9 @@ QEMU_MEM_SIZE=8G
 GUEST_OS_USER=emu
 GUEST_OS_PASSWORD=emu
 #
-#Well-known ports: 0 to 1023
-#Registered ports: 1024 to 49151
-#Dynamic and/or private ports: 49152 to 65535
+# Well-known ports: 0 to 1023
+# Registered ports: 1024 to 49151
+# Dynamic and/or private ports: 49152 to 65535
 #
 VALID_PORT_START=1024
 VALID_PORT_END=65535

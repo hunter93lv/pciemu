@@ -24,8 +24,8 @@
 #include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
-#include "hw/pciemu_hw.h"
-#include "sw/module/pciemu_ioctl.h"
+#include "pciemu_hw.h"
+#include "pciemu_ioctl.h"
 
 /* LOGs & co*/
 #define KERR "\e[1;31m"

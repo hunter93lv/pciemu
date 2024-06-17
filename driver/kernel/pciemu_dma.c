@@ -11,7 +11,7 @@
 
 #include <linux/dma-mapping.h>
 #include "pciemu_module.h"
-#include "hw/pciemu_hw.h"
+#include "pciemu_hw.h"
 #include <linux/completion.h>
 
 static void pciemu_dma_struct_init(struct pciemu_dma *dma, size_t ofs,

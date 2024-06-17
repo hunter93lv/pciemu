@@ -7,7 +7,7 @@
  * SPDX-License-Identifier: GPL-2.0
  *
  */
-#include "hw/pciemu_hw.h"
+#include "pciemu_hw.h"
 #include "pciemu_module.h"
 #include <linux/pci.h>
 #include <linux/completion.h>

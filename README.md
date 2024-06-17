@@ -74,7 +74,7 @@ This does not affect the properties of the file on the host, only on the guest.
 Later, it's all standard kernel module compilation and insertion into the kernel:
 
 ```bash
-$ cd /your_pciemu_path/src/sw/kernel/
+$ cd /your_pciemu_path/driver/kernel/
 $ make
 $ sudo insmod pciemu.ko
 ```
@@ -82,7 +82,7 @@ $ sudo insmod pciemu.ko
 Finally, the userspace program:
 
 ```bash
-$ cd /your_pciemu_path/src/sw/userspace/
+$ cd /your_pciemu_path/driver/userspace/
 $ make
 $ ./pciemu_example -h
 ```

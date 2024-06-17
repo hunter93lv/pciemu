@@ -9,9 +9,9 @@
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/pci.h>
-#include "hw/pciemu_hw.h"
+#include "pciemu_hw.h"
 #include "pciemu_module.h"
-#include "sw/module/pciemu_ioctl.h"
+#include "pciemu_ioctl.h"
 
 MODULE_LICENSE("GPL");
 MODULE_VERSION("1.0");

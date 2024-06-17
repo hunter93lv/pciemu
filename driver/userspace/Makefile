@@ -9,8 +9,9 @@ KBLUE := "\e[1;36m"
 KNORM := "\e[0m"
 
 build_dir := build/
-include_dir := $(abspath ../../../include/)
-includes := $(addprefix -I, $(include_dir))
+include_dir_driver := $(abspath ../include/)
+include_dir_hw := $(abspath ../../include/)
+includes := $(addprefix -I, $(include_dir_driver) $(include_dir_hw))
 cflags := -Wall -Werror -O2 $(includes)
 targets := pciemu_example
 

@@ -31,6 +31,7 @@ echo "subdir('$REPOSITORY_NAME')" >> $REPOSITORY_DIR/qemu/hw/misc/meson.build
 
 # Create symbolic links to device files
 ln -s $REPOSITORY_DIR/src/$REPOSITORY_NAME/ $REPOSITORY_DIR/qemu/hw/misc/
+ln -s $REPOSITORY_DIR/src/$REPOSITORY_NAME/ $REPOSITORY_DIR/qemu/include/
 
 # Create symbolic link to the pciemu_hw.h include file
 # This will avoid changing the meson files to be able to find this include
@@ -52,5 +53,6 @@ cd $REPOSITORY_DIR
 mv $REPOSITORY_DIR/qemu/hw/misc/Kconfig.bak qemu/hw/misc/Kconfig
 mv $REPOSITORY_DIR/qemu/hw/misc/meson.build.bak qemu/hw/misc/meson.build
 rm -rf $REPOSITORY_DIR/qemu/hw/misc/$REPOSITORY_NAME
+rm -rf $REPOSITORY_DIR/qemu/include/$REPOSITORY_NAME
 rm -rf $REPOSITORY_DIR/src/$REPOSITORY_NAME/pciemu_hw.h
 

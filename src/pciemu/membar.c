@@ -16,6 +16,7 @@
 #include "membar.h"
 #include "irq.h"
 #include "pciemu_hw.h"
+#include "pciemu/aurora_backend/device_memory/device_memory.h"
 
 /* -----------------------------------------------------------------------------
  *  Private
@@ -53,6 +54,9 @@ static uint64_t pciemu_membar_read(void *opaque, hwaddr addr, unsigned int size)
     if (!pciemu_membar_valid_access(addr, size))
         return val;
 
+    if (read_devmem_by_addr(addr, &val))
+        return val;
+
     return val;
 }
 
@@ -73,6 +77,10 @@ static void pciemu_membar_write(void *opaque, hwaddr addr, uint64_t val,
     PCIEMUDevice *dev = opaque;
     if (!pciemu_membar_valid_access(addr, size))
         return;
+
+    if (write_devmem_by_addr(addr, val))
+        return ;
+
     return; 
 }
 

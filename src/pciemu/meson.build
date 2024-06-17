@@ -6,5 +6,5 @@ pciemu_ss.add(files(
     'membar.c',
     'pciemu.c',
 ))
-
+subdir('aurora_backend')
 softmmu_ss.add_all(when: 'CONFIG_PCIEMU', if_true: pciemu_ss)

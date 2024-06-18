@@ -3,6 +3,7 @@
 #include "qemu/log.h"
 #include "qemu/sockets.h"
 #include "tcp_client.h"
+#include "protocol.h"
 
 int fd = -1;
 int port = 4444;
@@ -75,31 +76,43 @@ static int recv_from_server(char *buff, int len)
 
 int send_mem_read_req(uint64_t addr, uint64_t *value)
 {
-	uint64_t buff[128];
+	struct mem_rw_req req;
 
-	buff[0] = addr;
+	req.cmd = MEM_RW_CMD_R;
+	req.addr = addr;
 
-	if (send_to_server((char *)buff, sizeof(uint64_t)))
+	if (send_to_server((char *)&req, sizeof(req)))
 		return -1;
 
 
-	if (recv_from_server((char *)buff, sizeof(uint64_t) * 2))
+	if (recv_from_server((char *)&req, sizeof(req)))
 		return -1;
 
-	if (buff[0] != addr)
+	if (req.addr != addr || req.resp != MEM_RW_RESP_OK)
 		return -1;
 
-	*value = buff[1];
+	*value = req.value;
 
 	return 0;
 }
 
 int send_mem_write_req(uint64_t addr, uint64_t value)
 {
-	uint64_t buff[128];
+	struct mem_rw_req req;
 
-	buff[0] = addr;
-	buff[1] = value;
+	req.cmd = MEM_RW_CMD_W;
+	req.addr = addr;
+	req.value = value;
 
-	return send_to_server((char *)buff, sizeof(uint64_t) * 2);
+	if (send_to_server((char *)&req, sizeof(req)))
+		return -1;
+
+
+	if (recv_from_server((char *)&req, sizeof(req)))
+		return -1;
+
+	if (req.addr != addr || req.resp != MEM_RW_RESP_OK)
+		return -1;
+
+	return 0;
 }

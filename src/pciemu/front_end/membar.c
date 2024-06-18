@@ -14,28 +14,12 @@
 #include "qemu/log.h"
 #include "qemu/units.h"
 #include "membar.h"
-#include "irq.h"
-#include "pciemu_hw.h"
-#include "pciemu/aurora_backend/device_memory/device_memory.h"
+#include "pciemu/glue/glue.h"
 
 /* -----------------------------------------------------------------------------
  *  Private
  * -----------------------------------------------------------------------------
  */
-
-/**
- * pciemu_membar_valid_access: Check whether the access is valid
- *
- * The size verification here is not required.
- * (memory_region_access_valid function in QEMU core will filter those out)
- *
- * @addr: address being accessed (relative to the Memory Region)
- * @size: read size in bytes (1, 2, 4, or 8)
- */
-static inline bool pciemu_membar_valid_access(hwaddr addr, unsigned int size)
-{
-    return true;
-}
 
 /**
  * pciemu_membar_read: Callback for read operations
@@ -51,10 +35,8 @@ static uint64_t pciemu_membar_read(void *opaque, hwaddr addr, unsigned int size)
 {
     PCIEMUDevice *dev = opaque;
     uint64_t val = ~0ULL;
-    if (!pciemu_membar_valid_access(addr, size))
-        return val;
 
-    if (read_devmem_by_addr(addr, &val))
+    if (glue_read_devmem_by_addr(dev, addr, &val))
         return val;
 
     return val;
@@ -75,10 +57,8 @@ static void pciemu_membar_write(void *opaque, hwaddr addr, uint64_t val,
                               unsigned size)
 {
     PCIEMUDevice *dev = opaque;
-    if (!pciemu_membar_valid_access(addr, size))
-        return;
 
-    if (write_devmem_by_addr(addr, val))
+    if (glue_write_devmem_by_addr(dev, addr, val))
         return ;
 
     return; 

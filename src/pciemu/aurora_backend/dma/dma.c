@@ -1,32 +1,31 @@
-/* dma.c - Direct Memory Access (DMA) operations
- *
- * Copyright (c) 2023 Luiz Henrique Suraty Filho <luiz-dev@suraty.com>
- *
- * SPDX-License-Identifier: GPL-2.0
- *
- */
-
 #include "qemu/osdep.h"
 #include "qemu/log.h"
+#include "pciemu/front_end/pciemu.h"
+#include "pciemu/front_end/irq.h"
 #include "dma.h"
-#include "irq.h"
-#include "pciemu.h"
+#include "pciemu/aurora_backend/aurora.h"
 
 /* -----------------------------------------------------------------------------
  *  Private
  * -----------------------------------------------------------------------------
  */
 
+static inline bool aurora_dma_valid_access(uint64_t addr)
+{
+    return (AURORA_HW_BAR0_DMA_CFG_TXDESC_SRC <= addr && addr <= AURORA_HW_BAR0_DMA_DOORBELL_RING);
+}
+
 /**
- * pciemu_dma_addr_mask: Mask the DMA address according to device's capability
+ * aurora_dma_addr_mask: Mask the DMA address according to device's capability
  *
  * @dev: Instance of PCIEMUDevice object being used
  * @addr: Address to be masked
  */
-static inline dma_addr_t pciemu_dma_addr_mask(PCIEMUDevice *dev,
+static inline dma_addr_t aurora_dma_addr_mask(PCIEMUDevice *dev,
                                               dma_addr_t addr)
 {
-    dma_addr_t masked = addr & dev->dma.config.mask;
+    AURORADevice *adev = (AURORADevice *)dev->backend;
+    dma_addr_t masked = addr & adev->dma.config.mask;
     if (masked != addr) {
         qemu_log_mask(LOG_GUEST_ERROR,
                       "masked (%" PRIx64 ") != addr (%" PRIx64 ") \n", masked,
@@ -36,31 +35,32 @@ static inline dma_addr_t pciemu_dma_addr_mask(PCIEMUDevice *dev,
 }
 
 /**
- * pciemu_dma_inside_device_boundaries: Check if addr is inside boundaries
+ * aurora_dma_inside_device_boundaries: Check if addr is inside boundaries
  *
  * @addr: Address to be checked (address in device address space)
  */
-static inline bool pciemu_dma_inside_device_boundaries(dma_addr_t addr)
+static inline bool aurora_dma_inside_device_boundaries(dma_addr_t addr)
 {
-    return (PCIEMU_HW_DMA_AREA_START <= addr &&
-            addr <= PCIEMU_HW_DMA_AREA_START + PCIEMU_HW_DMA_AREA_SIZE);
+    return (AURORA_HW_DMA_AREA_START <= addr &&
+            addr <= AURORA_HW_DMA_AREA_START + AURORA_HW_DMA_AREA_SIZE);
 }
 
 /**
- * pciemu_dma_execute: Execute the DMA operation
+ * aurora_dma_execute: Execute the DMA operation
  *
  * Effectively executes the DMA operation according to the configurations
  * in the transfer descriptor.
  *
  * @dev: Instance of PCIEMUDevice object being used
  */
-static void pciemu_dma_execute(PCIEMUDevice *dev)
+static void aurora_dma_execute(PCIEMUDevice *dev)
 {
-    DMAEngine *dma = &dev->dma;
-    if (dma->config.cmd != PCIEMU_HW_DMA_DIRECTION_TO_DEVICE &&
-        dma->config.cmd != PCIEMU_HW_DMA_DIRECTION_FROM_DEVICE)
+    AURORADevice *adev = (AURORADevice *)dev->backend;
+    DMAEngine *dma = &adev->dma;
+    if (dma->config.cmd != AURORA_HW_DMA_DIRECTION_TO_DEVICE &&
+        dma->config.cmd != AURORA_HW_DMA_DIRECTION_FROM_DEVICE)
         return;
-    if (dma->config.cmd == PCIEMU_HW_DMA_DIRECTION_TO_DEVICE) {
+    if (dma->config.cmd == AURORA_HW_DMA_DIRECTION_TO_DEVICE) {
         /* DMA_DIRECTION_TO_DEVICE
          *   The transfer direction is RAM(or other device)->device.
          *   The content in the bus address dma->config.txdesc.src, which points
@@ -69,12 +69,12 @@ static void pciemu_dma_execute(PCIEMUDevice *dev)
          *   dma->buff is the dedicated area inside the device to receive
          *   DMA transfers. Thus, dst is basically the offset of dma->buff.
          */
-        if (!pciemu_dma_inside_device_boundaries(dma->config.txdesc.dst)) {
+        if (!aurora_dma_inside_device_boundaries(dma->config.txdesc.dst)) {
             qemu_log_mask(LOG_GUEST_ERROR, "dst register out of bounds \n");
             return;
         }
-        dma_addr_t src = pciemu_dma_addr_mask(dev, dma->config.txdesc.src);
-        dma_addr_t dst = dma->config.txdesc.dst - PCIEMU_HW_DMA_AREA_START;
+        dma_addr_t src = aurora_dma_addr_mask(dev, dma->config.txdesc.src);
+        dma_addr_t dst = dma->config.txdesc.dst - AURORA_HW_DMA_AREA_START;
         int err = pci_dma_read(&dev->pci_dev, src, dma->buff + dst,
                                dma->config.txdesc.len);
         if (err) {
@@ -89,28 +89,24 @@ static void pciemu_dma_execute(PCIEMUDevice *dev)
          *   dma->buff is the dedicated area inside the device to receive
          *   DMA transfers. Thus, src is basically the offset of dma->buff.
          */
-        if (!pciemu_dma_inside_device_boundaries(dma->config.txdesc.src)) {
+        if (!aurora_dma_inside_device_boundaries(dma->config.txdesc.src)) {
             qemu_log_mask(LOG_GUEST_ERROR, "src register out of bounds \n");
             return;
         }
-        dma_addr_t src = dma->config.txdesc.src - PCIEMU_HW_DMA_AREA_START;
-        dma_addr_t dst = pciemu_dma_addr_mask(dev, dma->config.txdesc.dst);
+        dma_addr_t src = dma->config.txdesc.src - AURORA_HW_DMA_AREA_START;
+        dma_addr_t dst = aurora_dma_addr_mask(dev, dma->config.txdesc.dst);
         int err = pci_dma_write(&dev->pci_dev, dst, dma->buff + src,
                                 dma->config.txdesc.len);
         if (err) {
             qemu_log_mask(LOG_GUEST_ERROR, "pci_dma_write err=%d\n", err);
         }
     }
-    pciemu_irq_raise(dev, PCIEMU_HW_IRQ_DMA_ENDED_VECTOR);
+    pciemu_irq_raise(dev, AURORA_HW_IRQ_DMA_ENDED_VECTOR);
 }
 
-/* -----------------------------------------------------------------------------
- *  Public
- * -----------------------------------------------------------------------------
- */
 
 /**
- * pciemu_dma_config_txdesc_src: Configure the source register
+ * aurora_dma_config_txdesc_src: Configure the source register
  *
  * The source register inside the transfer descriptor (txdesc)
  * describes source of the DMA operation. It can be :
@@ -119,15 +115,16 @@ static void pciemu_dma_execute(PCIEMUDevice *dev)
  *
  * @dev: Instance of PCIEMUDevice object being used
  */
-void pciemu_dma_config_txdesc_src(PCIEMUDevice *dev, dma_addr_t src)
+static void aurora_dma_config_txdesc_src(PCIEMUDevice *dev, dma_addr_t src)
 {
-    DMAStatus status = qatomic_read(&dev->dma.status);
+    AURORADevice *adev = (AURORADevice *)dev->backend;
+    DMAStatus status = qatomic_read(&adev->dma.status);
     if (status == DMA_STATUS_IDLE)
-        dev->dma.config.txdesc.src = src;
+        adev->dma.config.txdesc.src = src;
 }
 
 /**
- * pciemu_dma_config_txdesc_dst: Configure the destination register
+ * aurora_dma_config_txdesc_dst: Configure the destination register
  *
  * The destination register inside the transfer descriptor (txdesc)
  * describes destination of the DMA operation. It can be :
@@ -136,46 +133,49 @@ void pciemu_dma_config_txdesc_src(PCIEMUDevice *dev, dma_addr_t src)
  *
  * @dev: Instance of PCIEMUDevice object being used
  */
-void pciemu_dma_config_txdesc_dst(PCIEMUDevice *dev, dma_addr_t dst)
+static void aurora_dma_config_txdesc_dst(PCIEMUDevice *dev, dma_addr_t dst)
 {
-    DMAStatus status = qatomic_read(&dev->dma.status);
+    AURORADevice *adev = (AURORADevice *)dev->backend;
+    DMAStatus status = qatomic_read(&adev->dma.status);
     if (status == DMA_STATUS_IDLE)
-        dev->dma.config.txdesc.dst = dst;
+        adev->dma.config.txdesc.dst = dst;
 }
 
 /**
- * pciemu_dma_config_txdesc_len: Configure the length register
+ * aurora_dma_config_txdesc_len: Configure the length register
  *
  * The length register inside the transfer descriptor (txdesc) describes
  * the size of the DMA operation in bytes.
  *
  * @dev: Instance of PCIEMUDevice object being used
  */
-void pciemu_dma_config_txdesc_len(PCIEMUDevice *dev, dma_size_t size)
+static void aurora_dma_config_txdesc_len(PCIEMUDevice *dev, dma_size_t size)
 {
-    DMAStatus status = qatomic_read(&dev->dma.status);
+    AURORADevice *adev = (AURORADevice *)dev->backend;
+    DMAStatus status = qatomic_read(&adev->dma.status);
     if (status == DMA_STATUS_IDLE)
-        dev->dma.config.txdesc.len = size;
+        adev->dma.config.txdesc.len = size;
 }
 
 /**
- * pciemu_dma_config_cmd: Configure the command register
+ * aurora_dma_config_cmd: Configure the command register
  *
  * The command register can take the following values (pciemu_hw.h);
- *   - PCIEMU_HW_DMA_DIRECTION_TO_DEVICE - DMA to device memory (dma->buff)
- *   - PCIEMU_HW_DMA_DIRECTION_FROM_DEVICE - DMA from device memory (dma->buff)
+ *   - AURORA_HW_DMA_DIRECTION_TO_DEVICE - DMA to device memory (dma->buff)
+ *   - AURORA_HW_DMA_DIRECTION_FROM_DEVICE - DMA from device memory (dma->buff)
  *
  * @dev: Instance of PCIEMUDevice object being used
  */
-void pciemu_dma_config_cmd(PCIEMUDevice *dev, dma_cmd_t cmd)
+static void aurora_dma_config_cmd(PCIEMUDevice *dev, dma_cmd_t cmd)
 {
-    DMAStatus status = qatomic_read(&dev->dma.status);
+    AURORADevice *adev = (AURORADevice *)dev->backend;
+    DMAStatus status = qatomic_read(&adev->dma.status);
     if (status == DMA_STATUS_IDLE)
-        dev->dma.config.cmd = cmd;
+        adev->dma.config.cmd = cmd;
 }
 
 /**
- * pciemu_dma_doorbell_ring: Reception of a doorbell
+ * aurora_dma_doorbell_ring: Reception of a doorbell
  *
  * When the host (or other device) writes to the doorbell register
  * it is signaling to the DMA engine to start executing the DMA.
@@ -184,7 +184,7 @@ void pciemu_dma_config_cmd(PCIEMUDevice *dev, dma_cmd_t cmd)
  *
  * @dev: Instance of PCIEMUDevice object being used
  */
-void pciemu_dma_doorbell_ring(PCIEMUDevice *dev)
+static void aurora_dma_doorbell_ring(PCIEMUDevice *dev)
 {
     /* atomic access of dma.status may not be neeeded as the MMIO access
      * will be normally serialized.
@@ -192,16 +192,48 @@ void pciemu_dma_doorbell_ring(PCIEMUDevice *dev)
      * atomic accessing regions, especially if the device is a bit more
      * complex.
      */
-    DMAStatus status = qatomic_cmpxchg(&dev->dma.status, DMA_STATUS_IDLE,
+    AURORADevice *adev = (AURORADevice *)dev->backend;
+    DMAStatus status = qatomic_cmpxchg(&adev->dma.status, DMA_STATUS_IDLE,
                                        DMA_STATUS_EXECUTING);
     if (status == DMA_STATUS_EXECUTING)
         return;
-    pciemu_dma_execute(dev);
-    qatomic_set(&dev->dma.status, DMA_STATUS_IDLE);
+    aurora_dma_execute(dev);
+    qatomic_set(&adev->dma.status, DMA_STATUS_IDLE);
 }
 
+/* -----------------------------------------------------------------------------
+ *  Public
+ * -----------------------------------------------------------------------------
+ */
+int aurora_dma_reg_write(PCIEMUDevice *dev, uint64_t addr, uint64_t value)
+{
+    if (!aurora_dma_valid_access(addr))
+        return -1;
+
+    switch (addr) {
+    case AURORA_HW_BAR0_DMA_CFG_TXDESC_SRC:
+        aurora_dma_config_txdesc_src(dev, value);
+        break;
+    case AURORA_HW_BAR0_DMA_CFG_TXDESC_DST:
+        aurora_dma_config_txdesc_dst(dev, value);
+        break;
+    case AURORA_HW_BAR0_DMA_CFG_TXDESC_LEN:
+        aurora_dma_config_txdesc_len(dev, value);
+        break;
+    case AURORA_HW_BAR0_DMA_CFG_CMD:
+        aurora_dma_config_cmd(dev, value);
+        break;
+    case AURORA_HW_BAR0_DMA_DOORBELL_RING:
+        aurora_dma_doorbell_ring(dev);
+        break;
+    }
+
+    return 0;
+}
+
+
 /**
- * pciemu_dma_reset: DMA reset
+ * aurora_dma_reset: DMA reset
  *
  * Resets the DMA block for the instantiated PCIEMUDevice object.
  * This can be considered a hard reset as we do not wait for the
@@ -209,9 +241,10 @@ void pciemu_dma_doorbell_ring(PCIEMUDevice *dev)
  *
  * @dev: Instance of PCIEMUDevice object being used
  */
-void pciemu_dma_reset(PCIEMUDevice *dev)
+void aurora_dma_reset(PCIEMUDevice *dev)
 {
-    DMAEngine *dma = &dev->dma;
+    AURORADevice *adev = (AURORADevice *)dev->backend;
+    DMAEngine *dma = &adev->dma;
     dma->status = DMA_STATUS_IDLE;
     dma->config.txdesc.src = 0;
     dma->config.txdesc.dst = 0;
@@ -219,11 +252,11 @@ void pciemu_dma_reset(PCIEMUDevice *dev)
     dma->config.cmd = 0;
 
     /* clear the internal buffer */
-    memset(dma->buff, 0, PCIEMU_HW_DMA_AREA_SIZE);
+    memset(dma->buff, 0, AURORA_HW_DMA_AREA_SIZE);
 }
 
 /**
- * pciemu_dma_init: DMA initialization
+ * aurora_dma_init: DMA initialization
  *
  * Initializes the DMA block for the instantiated PCIEMUDevice object.
  * Note that we receive a pointer for a PCIEMUDevice, but, due to the OOP hack
@@ -232,18 +265,19 @@ void pciemu_dma_reset(PCIEMUDevice *dev)
  * @dev: Instance of PCIEMUDevice object being initialized
  * @errp: pointer to indicate errors
  */
-void pciemu_dma_init(PCIEMUDevice *dev, Error **errp)
+void aurora_dma_init(PCIEMUDevice *dev)
 {
+    AURORADevice *adev = (AURORADevice *)dev->backend;
     /* Basically reset the DMA engine */
-    pciemu_dma_reset(dev);
+    aurora_dma_reset(dev);
 
     /* and set the DMA mask, which does not change */
-    dev->dma.config.mask = DMA_BIT_MASK(PCIEMU_HW_DMA_ADDR_CAPABILITY);
+    adev->dma.config.mask = DMA_BIT_MASK(AURORA_HW_DMA_ADDR_CAPABILITY);
 }
 
 
 /**
- * pciemu_dma_fini: DMA finalization
+ * aurora_dma_fini: DMA finalization
  *
  * Finalizes the DMA block for the instantiated PCIEMUDevice object.
  * Note that we receive a pointer for a PCIEMUDevice, but, due to the OOP hack
@@ -251,8 +285,9 @@ void pciemu_dma_init(PCIEMUDevice *dev, Error **errp)
  *
  * @dev: Instance of PCIEMUDevice object being finalized
  */
-void pciemu_dma_fini(PCIEMUDevice *dev)
+void aurora_dma_fini(PCIEMUDevice *dev)
 {
-    pciemu_dma_reset(dev);
-    dev->dma.status = DMA_STATUS_OFF;
+    AURORADevice *adev = (AURORADevice *)dev->backend;
+    aurora_dma_reset(dev);
+    adev->dma.status = DMA_STATUS_OFF;
 }

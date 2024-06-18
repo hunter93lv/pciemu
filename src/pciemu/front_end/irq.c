@@ -9,7 +9,9 @@
 #include "qemu/osdep.h"
 #include "qemu/log.h"
 #include "hw/pci/msi.h"
-#include "pciemu.h"
+#include "hw/pci/msix.h"
+#include "pciemu/front_end/pciemu.h"
+#include "pciemu/glue/glue.h"
 #include "irq.h"
 
 /* -----------------------------------------------------------------------------
@@ -292,5 +294,5 @@ void pciemu_irq_fini(PCIEMUDevice *dev)
 {
     pciemu_irq_reset(dev);
     msi_uninit(&dev->pci_dev);
-    msix_uninit(&dev->pci_dev);
+    msix_uninit(&dev->pci_dev, &dev->reg, &dev->reg);
 }

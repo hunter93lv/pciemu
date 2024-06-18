@@ -1,17 +1,9 @@
-/* dma.h - Direct Memory Access (DMA) operations
- *
- * Copyright (c) 2023 Luiz Henrique Suraty Filho <luiz-dev@suraty.com>
- *
- * SPDX-License-Identifier: GPL-2.0
- *
- */
-
-#ifndef PCIEMU_DMA_H
-#define PCIEMU_DMA_H
+#ifndef AURORA_DMA_H
+#define AURORA_DMA_H
 
 #include "qemu/osdep.h"
 #include "hw/pci/pci.h"
-#include "pciemu_hw.h"
+#include "pciemu/aurora_backend/aurora_hw.h"
 
 #define DMA_BIT_MASK(n) (((n) == 64) ? ~0ULL : ((1ULL << (n)) - 1))
 
@@ -51,24 +43,16 @@ typedef enum DMAStatus {
 typedef struct DMAEngine {
     DMAConfig config;
     DMAStatus status;
-    uint8_t buff[PCIEMU_HW_DMA_AREA_SIZE];
+    uint8_t buff[AURORA_HW_DMA_AREA_SIZE];
 } DMAEngine;
 
 
-void pciemu_dma_config_txdesc_src(PCIEMUDevice *dev, dma_addr_t src);
+int aurora_dma_reg_write(PCIEMUDevice *dev, uint64_t addr, uint64_t value);
 
-void pciemu_dma_config_txdesc_dst(PCIEMUDevice *dev, dma_addr_t dst);
+void aurora_dma_reset(PCIEMUDevice *dev);
 
-void pciemu_dma_config_txdesc_len(PCIEMUDevice *dev, dma_size_t size);
+void aurora_dma_init(PCIEMUDevice *dev);
 
-void pciemu_dma_config_cmd(PCIEMUDevice *dev, dma_cmd_t cmd);
+void aurora_dma_fini(PCIEMUDevice *dev);
 
-void pciemu_dma_doorbell_ring(PCIEMUDevice *dev);
-
-void pciemu_dma_reset(PCIEMUDevice *dev);
-
-void pciemu_dma_init(PCIEMUDevice *dev, Error **errp);
-
-void pciemu_dma_fini(PCIEMUDevice *dev);
-
-#endif /* PCIEMU_DMA_H */
+#endif /* AURORA_DMA_H */

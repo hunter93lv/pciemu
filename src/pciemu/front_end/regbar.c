@@ -14,27 +14,7 @@
 #include "qemu/log.h"
 #include "qemu/units.h"
 #include "regbar.h"
-#include "irq.h"
-#include "pciemu_hw.h"
-
-/* -----------------------------------------------------------------------------
- *  Private
- * -----------------------------------------------------------------------------
- */
-
-/**
- * pciemu_regbar_valid_access: Check whether the access is valid
- *
- * The size verification here is not required.
- * (memory_region_access_valid function in QEMU core will filter those out)
- *
- * @addr: address being accessed (relative to the Memory Region)
- * @size: read size in bytes (1, 2, 4, or 8)
- */
-static inline bool pciemu_regbar_valid_access(hwaddr addr, unsigned int size)
-{
-    return (PCIEMU_HW_BAR0_START <= addr && addr <= PCIEMU_HW_BAR0_END);
-}
+#include "pciemu/glue/glue.h"
 
 /**
  * pciemu_regbar_read: Callback for read operations
@@ -50,23 +30,10 @@ static uint64_t pciemu_regbar_read(void *opaque, hwaddr addr, unsigned int size)
 {
     PCIEMUDevice *dev = opaque;
     uint64_t val = ~0ULL;
-    if (!pciemu_regbar_valid_access(addr, size))
-        return val;
-    switch (addr) {
-    case PCIEMU_HW_BAR0_REG_0:
-        val = dev->regs[0];
-        break;
-    case PCIEMU_HW_BAR0_REG_1:
-        val = dev->regs[1];
-        break;
-    case PCIEMU_HW_BAR0_REG_2:
-        val = dev->regs[2];
-        break;
-    case PCIEMU_HW_BAR0_REG_3:
-        val = dev->regs[3];
-        break;
-    }
-    return val;
+
+    if (glue_read_reg_by_addr(dev, addr, &val))
+         return val;
+     return val;
 }
 
 /**
@@ -84,47 +51,9 @@ static void pciemu_regbar_write(void *opaque, hwaddr addr, uint64_t val,
                               unsigned size)
 {
     PCIEMUDevice *dev = opaque;
-    if (!pciemu_regbar_valid_access(addr, size))
-        return;
-    switch (addr) {
-    case PCIEMU_HW_BAR0_REG_0:
-        dev->regs[0] = val;
-        break;
-    case PCIEMU_HW_BAR0_REG_1:
-        dev->regs[1] = val;
-        break;
-    case PCIEMU_HW_BAR0_REG_2:
-        dev->regs[2] = val;
-        break;
-    case PCIEMU_HW_BAR0_REG_3:
-        dev->regs[3] = val;
-        break;
-    /* Left here for debug purposes only
-     * Attempting to raise the IRQ0 when using the default device
-     * driver may cause a crash during the unpinning process.
-     */
-    case PCIEMU_HW_BAR0_IRQ_0_RAISE:
-        pciemu_irq_raise(dev, 0);
-        break;
-    case PCIEMU_HW_BAR0_IRQ_0_LOWER:
-        pciemu_irq_lower(dev, 0);
-        break;
-    case PCIEMU_HW_BAR0_DMA_CFG_TXDESC_SRC:
-        pciemu_dma_config_txdesc_src(dev, val);
-        break;
-    case PCIEMU_HW_BAR0_DMA_CFG_TXDESC_DST:
-        pciemu_dma_config_txdesc_dst(dev, val);
-        break;
-    case PCIEMU_HW_BAR0_DMA_CFG_TXDESC_LEN:
-        pciemu_dma_config_txdesc_len(dev, val);
-        break;
-    case PCIEMU_HW_BAR0_DMA_CFG_CMD:
-        pciemu_dma_config_cmd(dev, val);
-        break;
-    case PCIEMU_HW_BAR0_DMA_DOORBELL_RING:
-        pciemu_dma_doorbell_ring(dev);
-        break;
-    }
+
+    glue_write_reg_by_addr(dev, addr, val);
+    return;
 }
 
 /* -----------------------------------------------------------------------------
@@ -142,8 +71,7 @@ static void pciemu_regbar_write(void *opaque, hwaddr addr, uint64_t val,
  */
 void pciemu_regbar_reset(PCIEMUDevice *dev)
 {
-    for (int i = 0; i < PCIEMU_HW_BAR0_REG_CNT; ++i)
-        dev->regs[i] = 0;
+	return;
 }
 
 /**

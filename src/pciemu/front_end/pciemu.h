@@ -9,10 +9,7 @@
 #define PCIEMU_H
 
 #include "qemu/osdep.h"
-//#include "hw/pci/pci.h"
 #include "hw/pci/pci_device.h"
-#include "pciemu_hw.h"
-#include "dma.h"
 #include "irq.h"
 
 #define TYPE_PCIEMU_DEVICE "pciemu"
@@ -43,17 +40,13 @@ typedef struct PCIEMUDevice {
     /* IRQs */
     IRQStatus irq;
 
-    /* DMAs */
-    DMAEngine dma;
-
     /* Memory Regions */
     MemoryRegion reg; /* BAR 0 (registers) */
 
     /* Memory Regions */
     MemoryRegion dmem; /* BAR 1 (memory) */
 
-    /* Registers in BAR0 */
-    uint64_t regs[PCIEMU_HW_BAR0_REG_CNT];
+    void *backend;
 } PCIEMUDevice;
 
 #endif /* PCIEMU_H */

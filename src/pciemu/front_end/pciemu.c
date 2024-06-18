@@ -14,12 +14,11 @@
  *
  */
 
-#include "pciemu.h"
-#include "pciemu_hw.h"
-#include "dma.h"
+#include "pciemu/front_end/pciemu.h"
 #include "irq.h"
 #include "regbar.h"
 #include "membar.h"
+#include "pciemu/glue/glue.h"
 
 
 /* -----------------------------------------------------------------------------
@@ -37,7 +36,7 @@ static void pciemu_reset(PCIEMUDevice *dev)
     pciemu_regbar_reset(dev);
     pciemu_membar_reset(dev);
     pciemu_irq_reset(dev);
-    pciemu_dma_reset(dev);
+    glue_backend_reset(dev);
 }
 
 /* -----------------------------------------------------------------------------
@@ -62,7 +61,7 @@ static void pciemu_device_init(PCIDevice *pci_dev, Error **errp)
     pciemu_regbar_init(dev, errp);
     pciemu_membar_init(dev, errp);
     pciemu_irq_init(dev, errp);
-    pciemu_dma_init(dev, errp);
+    glue_backend_init(dev);
 }
 
 /**
@@ -78,7 +77,7 @@ static void pciemu_device_init(PCIDevice *pci_dev, Error **errp)
 static void pciemu_device_fini(PCIDevice *pci_dev)
 {
     PCIEMUDevice *dev = PCIEMU_DEVICE(pci_dev);
-    pciemu_dma_fini(dev);
+    glue_backend_fini(dev);
     pciemu_irq_fini(dev);
     pciemu_membar_fini(dev);
     pciemu_regbar_fini(dev);

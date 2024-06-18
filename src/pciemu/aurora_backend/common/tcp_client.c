@@ -74,9 +74,12 @@ static int recv_from_server(char *buff, int len)
 	return 0;
 }
 
-int send_mem_read_req(uint64_t addr, uint64_t *value)
+int tcp_send_mem_read_req(uint64_t addr, uint64_t *value)
 {
 	struct mem_rw_req req;
+
+	if (!value)
+		return -1;
 
 	req.cmd = MEM_RW_CMD_R;
 	req.addr = addr;
@@ -88,15 +91,17 @@ int send_mem_read_req(uint64_t addr, uint64_t *value)
 	if (recv_from_server((char *)&req, sizeof(req)))
 		return -1;
 
-	if (req.addr != addr || req.resp != MEM_RW_RESP_OK)
+	if (req.addr != addr || req.resp != MEM_RW_RESP_OK) {
+		*value = 0xdeadbeef;
 		return -1;
+	}
 
 	*value = req.value;
 
 	return 0;
 }
 
-int send_mem_write_req(uint64_t addr, uint64_t value)
+int tcp_send_mem_write_req(uint64_t addr, uint64_t value)
 {
 	struct mem_rw_req req;
 

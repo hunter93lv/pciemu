@@ -9,7 +9,7 @@
 #ifndef PCIEMU_REGBAR_H
 #define PCIEMU_REGBAR_H
 
-#include "pciemu.h"
+#include "pciemu/front_end/pciemu.h"
 
 /* forward declaration (defined in pciemu.h) to avoid circular reference */
 typedef struct PCIEMUDevice PCIEMUDevice;

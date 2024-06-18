@@ -10,8 +10,9 @@ KNORM := "\e[0m"
 
 build_dir := build/
 include_dir_driver := $(abspath ../include/)
-include_dir_hw := $(abspath ../../include/)
-includes := $(addprefix -I, $(include_dir_driver) $(include_dir_hw))
+include_dir_hw := $(abspath ../../src/pciemu/glue/)
+include_dir_hw2 := $(abspath ../../src/)
+includes := $(addprefix -I, $(include_dir_driver) $(include_dir_hw) $(include_dir_hw2))
 cflags := -Wall -Werror -O2 $(includes)
 targets := pciemu_example
 

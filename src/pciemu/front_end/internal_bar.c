@@ -3,11 +3,11 @@
 #include "qapi/error.h"
 #include "qemu/log.h"
 #include "qemu/units.h"
-#include "regbar.h"
+#include "internal_bar.h"
 #include "pciemu/glue/glue.h"
 
 
-static uint64_t pciemu_regbar_read(void *opaque, hwaddr addr, unsigned int size)
+static uint64_t pciemu_internal_bar_read(void *opaque, hwaddr addr, unsigned int size)
 {
     PCIEMUDevice *dev = opaque;
     uint64_t val = ~0ULL;
@@ -17,7 +17,7 @@ static uint64_t pciemu_regbar_read(void *opaque, hwaddr addr, unsigned int size)
      return val;
 }
 
-static void pciemu_regbar_write(void *opaque, hwaddr addr, uint64_t val,
+static void pciemu_internal_bar_write(void *opaque, hwaddr addr, uint64_t val,
                               unsigned size)
 {
     PCIEMUDevice *dev = opaque;
@@ -31,39 +31,39 @@ static void pciemu_regbar_write(void *opaque, hwaddr addr, uint64_t val,
  * -----------------------------------------------------------------------------
  */
 
-void pciemu_regbar_reset(PCIEMUDevice *dev)
+void pciemu_internal_bar_reset(PCIEMUDevice *dev)
 {
 	return;
 }
 
-void pciemu_regbar_init(PCIEMUDevice *dev, Error **errp)
+void pciemu_internal_bar_init(PCIEMUDevice *dev, Error **errp)
 {
     uint8_t bar_type = PCI_BASE_ADDRESS_SPACE_MEMORY;
 
-    if (PCIEMU_HW_REG_BAR_WIDE == 64)
+    if (PCIEMU_HW_INT_BAR_WIDE == 64)
         bar_type |= PCI_BASE_ADDRESS_MEM_TYPE_64;
-    else if (PCIEMU_HW_REG_BAR_WIDE == 32)
+    else if (PCIEMU_HW_INT_BAR_WIDE == 32)
         bar_type |= PCI_BASE_ADDRESS_MEM_TYPE_32;
     else
         bar_type |= PCI_BASE_ADDRESS_MEM_TYPE_32;
 
-    if (PCIEMU_HW_REG_BAR_PREFETCHABLE)
+    if (PCIEMU_HW_INT_BAR_PREFETCHABLE)
         bar_type |= PCI_BASE_ADDRESS_MEM_PREFETCH;
     /* BAR 0 will have memory region described in mmio (pciemu_mmio_ops) */
     /* Keeping the BAR size as the page size of the guest */
-    memory_region_init_io(&dev->reg, OBJECT(dev), &pciemu_regbar_ops, dev,
-                          "pciemu-reg", PCIEMU_HW_REG_BAR_SIZE);
-    pci_register_bar(&dev->pci_dev, PCIEMU_HW_REG_BAR, bar_type, &dev->reg);
+    memory_region_init_io(&dev->internal, OBJECT(dev), &pciemu_internal_bar_ops, dev,
+                          "pciemu-internal", PCIEMU_HW_INT_BAR_SIZE);
+    pci_register_bar(&dev->pci_dev, PCIEMU_HW_INT_BAR, bar_type, &dev->internal);
 }
 
-void pciemu_regbar_fini(PCIEMUDevice *dev)
+void pciemu_internal_bar_fini(PCIEMUDevice *dev)
 {
-    pciemu_regbar_reset(dev);
+    pciemu_internal_bar_reset(dev);
 }
 
-const MemoryRegionOps pciemu_regbar_ops = {
-    .read = pciemu_regbar_read,
-    .write = pciemu_regbar_write,
+const MemoryRegionOps pciemu_internal_bar_ops = {
+    .read = pciemu_internal_bar_read,
+    .write = pciemu_internal_bar_write,
     .endianness = DEVICE_NATIVE_ENDIAN,
     .valid = {
     .min_access_size = 4,
@@ -74,3 +74,4 @@ const MemoryRegionOps pciemu_regbar_ops = {
         .max_access_size = 8,
     },
 };
+

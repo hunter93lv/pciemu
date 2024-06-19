@@ -1,11 +1,3 @@
-/* pciemu_module.h - header file with definitions for pciemu module
- *
- * Copyright (c) 2023 Luiz Henrique Suraty Filho <luiz-dev@suraty.com>
- *
- * SPDX-License-Identifier: GPL-2.0
- *
- */
-
 #ifndef _PCIEMU_MODULE_H_
 #define _PCIEMU_MODULE_H_
 
@@ -46,6 +38,8 @@ struct pciemu_dev {
 	struct pciemu_bar regbar;
 
 	struct pciemu_bar membar;
+
+	struct pciemu_bar internal_bar;
 	/* Only one IRQ is used in this simple device :
 	 *  - IRQ to inform that DMA has finished
 	 * We could also have an array here to describe more IRQs

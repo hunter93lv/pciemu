@@ -1,12 +1,3 @@
-/* pciemu_irq.c - pciemu virtual device IRQ operations
- *
- * These are functions that configure IRQs and the appropriate handlers.
- *
- * Copyright (c) 2023 Luiz Henrique Suraty Filho <luiz-dev@suraty.com>
- *
- * SPDX-License-Identifier: GPL-2.0
- *
- */
 #include "pciemu_hw.h"
 #include "pciemu_module.h"
 #include <linux/pci.h>

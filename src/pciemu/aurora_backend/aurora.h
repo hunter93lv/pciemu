@@ -8,9 +8,16 @@
 typedef struct AURORADevice {
     PCIEMUDevice *parent;
     DMAEngine dma;
-    uint64_t regs[AURORA_HW_BAR0_REG_CNT];
+    uint64_t regs[AURORA_HW_REGBAR_REG_CNT];
 } AURORADevice;
 
+static inline AURORADevice *get_aurora_dev(PCIEMUDevice *dev)
+{
+    if (!dev)
+        return NULL;
+
+    return (AURORADevice *)dev->backend;
+}
 
 int aurora_write_devmem_by_addr(PCIEMUDevice *dev, uint64_t addr, uint64_t value);
 

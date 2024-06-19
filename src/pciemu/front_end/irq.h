@@ -1,11 +1,3 @@
-/* irq.h - Interrupt Request operations
- *
- * Copyright (c) 2023 Luiz Henrique Suraty Filho <luiz-dev@suraty.com>
- *
- * SPDX-License-Identifier: GPL-2.0
- *
- */
-
 #ifndef PCIEMU_IRQ_H
 #define PCIEMU_IRQ_H
 
@@ -16,10 +8,8 @@
 #define PCIEMU_IRQ_MAX_VECTORS_MSIX 2048
 
 
-/* forward declaration (defined in pciemu.h) to avoid circular reference */
 typedef struct PCIEMUDevice PCIEMUDevice;
 
-/* defines a single MSIVector */
 typedef struct MSIVector {
     PCIEMUDevice *dev;
     bool raised;
@@ -35,15 +25,9 @@ typedef struct IRQStatusMSIX {
 
 
 typedef struct IRQStatusPin {
-    /* our simple device has only one interrupt, a more complex one
-     * would require us to track in some way which event caused the
-     * interrupt. Thus, a bool type would not be appropriate.
-     * We would probably need to use a masked scheme .
-     */
     bool raised;
 } IRQStatusPin;
 
-/* IRQ status -> either msi or pin is being used */
 typedef struct IRQStatus {
     union {
         IRQStatusMSIX msix;

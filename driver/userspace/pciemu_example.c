@@ -1,18 +1,3 @@
-/* pciemu_example.c - Userspace example on how to use the pciemu device
- *
- * It requires the pciemu kernel module to be loaded to operate correctly.
- * This program basically performs the following :
- *  - opens the device file created by the kernel module
- *  - mmaps the BAR0 to access the device registers
- *  - uses ioctl to DMA to and from its own virtual memory (which are pinned on
- *    the kernel module)
- *
- * Copyright (c) 2023 Luiz Henrique Suraty Filho <luiz-dev@suraty.com>
- *
- * SPDX-License-Identifier: GPL-2.0
- *
- */
-
 #include <errno.h>
 #include <fcntl.h>
 #include <stdint.h>
@@ -187,7 +172,7 @@ static struct context parse_args(int argc, char **argv)
     /* PCI funciton number is always 0 for pciemu */
     ctx.pci_func_nb = 0;
     /* get the number of registers directly from HW definitions */
-    ctx.pci_hw_regs_nb = PCIEMU_HW_BAR0_REG_CNT;
+    ctx.pci_hw_regs_nb = PCIEMU_HW_REGBAR_REG_CNT;
     ctx.pci_hw_bar_len = ctx.pci_hw_regs_nb * sizeof(uint64_t);
     ctx.verbosity = 0;
 
@@ -230,9 +215,9 @@ static struct context parse_args(int argc, char **argv)
                 exit(-1);
             }
             if (ctx.pci_hw_regs_nb < 1 ||
-                ctx.pci_hw_regs_nb > PCIEMU_HW_BAR0_REG_CNT) {
+                ctx.pci_hw_regs_nb > PCIEMU_HW_REGBAR_REG_CNT) {
                 LOG_ERR("number of registers (%d) out of range ([1 , %d])\n",
-                        ctx.pci_hw_regs_nb, PCIEMU_HW_BAR0_REG_CNT);
+                        ctx.pci_hw_regs_nb, PCIEMU_HW_REGBAR_REG_CNT);
                 exit(-1);
             }
             ctx.pci_hw_bar_len = ctx.pci_hw_regs_nb * sizeof(uint64_t);

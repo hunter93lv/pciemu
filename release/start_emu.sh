@@ -31,6 +31,8 @@ GUEST_OS_PASSWORD=emu
 #
 VALID_PORT_START=1024
 VALID_PORT_END=65535
+SERVER_IP=127.0.0.1
+SERVER_PORT=4444
 ORIGINAL_IMAGE_PATH=root@39.103.98.210:/root/ubuntu1804.image.tar.gz
 
 source $REPOSITORY_DIR/utils/log.sh
@@ -62,6 +64,15 @@ function get_random_port() {
 }
 
 
+if [ -z "$1" ] || [ -z "$2" ]; then
+  log $LOG_LEVEL_WARN "Usage: $0 <server_ip> <server_port>"
+  log $LOG_LEVEL_WARN "No emu server ip & port parameters detected."
+  log $LOG_LEVEL_WARN "Will use default cfg:ip $SERVER_IP,port $SERVER_PORT."
+else
+  SERVER_IP=$1
+  SERVER_PORT=$2
+fi
+
 rm -rf $QEMU_TCP_PORT_SSH_TMP_FILE
 QEMU_TCP_PORT_SSH=$(get_random_port $VALID_PORT_START $VALID_PORT_END)
 echo ${QEMU_TCP_PORT_SSH} > ${QEMU_TCP_PORT_SSH_TMP_FILE}
@@ -90,6 +101,8 @@ fi
 
 cp $QEMU_DRIVE_FILE_BAK $QEMU_DRIVE_FILE
 
+export EMU_SERVER_IP=$SERVER_IP
+export EMU_SERVER_PORT=$SERVER_PORT
 
  $QEMU_EXEC\
   -accel $QEMU_ACCEL\

@@ -7,20 +7,7 @@
  
 </div>
 
-pciemu provides an example of PCIe Device Emulation in QEMU.
-
-The idea is to help those willing to explore PCIe devices but do not have access
-to a real hardware. Or maybe someone with research ideas for a new PCIe device
-or capability who want to easily test those ideas.
-
-Virtual devices can also be used to speed up the development process of a new
-PCIe device and create test suites that do not require the existence of the
-physical HW.
-
-Please note that pciemu implements a relatively simple device, with the goal
-mainly being to provide an initial tutorial on how to write a virtual PCIe device
-in QEMU.
-
+pciemu provides a PCIe Device Emulation in QEMU.
 
 ## Setup and Compiling QEMU
 
@@ -86,6 +73,3 @@ $ cd /your_pciemu_path/driver/userspace/
 $ make
 $ ./pciemu_example -h
 ```
-
-Don't forget that ```lspci``` is your friend when it comes to PCIe devices.
-

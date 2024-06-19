@@ -1,14 +1,3 @@
-/* pciemu_dma.c - pciemu virtual device DMA operations
- *
- * These are functions that map BARs inside the kernel module and 
- * access them directly from the kernel module.
- *
- * Copyright (c) 2023 Luiz Henrique Suraty Filho <luiz-dev@suraty.com>
- *
- * SPDX-License-Identifier: GPL-2.0
- *
- */
-
 #include <linux/dma-mapping.h>
 #include "pciemu_module.h"
 #include "pciemu_hw.h"
@@ -41,14 +30,14 @@ int pciemu_dma_from_host_to_device(struct pciemu_dev *pciemu_dev,
 		(unsigned long long)pciemu_dev->dma.dma_handle);
 	dev_dbg(&(pdev->dev), "cmd = %x\n", PCIEMU_HW_DMA_DIRECTION_TO_DEVICE);
 	iowrite32((u32)pciemu_dev->dma.dma_handle,
-		  mmio + PCIEMU_HW_BAR0_DMA_CFG_TXDESC_SRC);
+		  mmio + PCIEMU_HW_REG_DMA_CFG_TXDESC_SRC);
 	iowrite32(PCIEMU_HW_DMA_AREA_START,
-		  mmio + PCIEMU_HW_BAR0_DMA_CFG_TXDESC_DST);
+		  mmio + PCIEMU_HW_REG_DMA_CFG_TXDESC_DST);
 	iowrite32(pciemu_dev->dma.len,
-		  mmio + PCIEMU_HW_BAR0_DMA_CFG_TXDESC_LEN);
+		  mmio + PCIEMU_HW_REG_DMA_CFG_TXDESC_LEN);
 	iowrite32(PCIEMU_HW_DMA_DIRECTION_TO_DEVICE,
-		  mmio + PCIEMU_HW_BAR0_DMA_CFG_CMD);
-	iowrite32(1, mmio + PCIEMU_HW_BAR0_DMA_DOORBELL_RING);
+		  mmio + PCIEMU_HW_REG_DMA_CFG_CMD);
+	iowrite32(1, mmio + PCIEMU_HW_REG_DMA_DOORBELL_RING);
 	wait_for_completion(&pciemu_dev->dma.completion);
 	mutex_unlock(&pciemu_dev->dma.mtx);
 	dev_dbg(&(pdev->dev), "done host->device...\n");
@@ -74,14 +63,14 @@ int pciemu_dma_from_device_to_host(struct pciemu_dev *pciemu_dev,
 	dev_dbg(&(pdev->dev), "cmd = %x\n",
 		PCIEMU_HW_DMA_DIRECTION_FROM_DEVICE);
 	iowrite32(PCIEMU_HW_DMA_AREA_START,
-		  mmio + PCIEMU_HW_BAR0_DMA_CFG_TXDESC_SRC);
+		  mmio + PCIEMU_HW_REG_DMA_CFG_TXDESC_SRC);
 	iowrite32((u32)pciemu_dev->dma.dma_handle,
-		  mmio + PCIEMU_HW_BAR0_DMA_CFG_TXDESC_DST);
+		  mmio + PCIEMU_HW_REG_DMA_CFG_TXDESC_DST);
 	iowrite32(pciemu_dev->dma.len,
-		  mmio + PCIEMU_HW_BAR0_DMA_CFG_TXDESC_LEN);
+		  mmio + PCIEMU_HW_REG_DMA_CFG_TXDESC_LEN);
 	iowrite32(PCIEMU_HW_DMA_DIRECTION_FROM_DEVICE,
-		  mmio + PCIEMU_HW_BAR0_DMA_CFG_CMD);
-	iowrite32(1, mmio + PCIEMU_HW_BAR0_DMA_DOORBELL_RING);
+		  mmio + PCIEMU_HW_REG_DMA_CFG_CMD);
+	iowrite32(1, mmio + PCIEMU_HW_REG_DMA_DOORBELL_RING);
 	wait_for_completion(&pciemu_dev->dma.completion);
 	mutex_unlock(&pciemu_dev->dma.mtx);
 	dev_dbg(&(pdev->dev), "done device->host...\n\n");

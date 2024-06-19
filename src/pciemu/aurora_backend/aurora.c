@@ -8,7 +8,7 @@
 
 static inline bool aurora_regbar_valid_access(uint64_t addr)
 {
-    return (AURORA_HW_BAR0_START <= addr && addr <= AURORA_HW_BAR0_END);
+    return (AURORA_HW_REGBAR_START <= addr && addr <= AURORA_HW_REGBAR_END);
 }
 
 int aurora_write_devmem_by_addr(PCIEMUDevice *dev, uint64_t addr, uint64_t value)
@@ -23,31 +23,31 @@ int aurora_read_devmem_by_addr(PCIEMUDevice *dev, uint64_t addr, uint64_t *value
 
 int aurora_write_reg_by_addr(PCIEMUDevice *dev, uint64_t addr, uint64_t value)
 {
-    AURORADevice *adev = (AURORADevice *)dev->backend;
+    AURORADevice *adev = get_aurora_dev(dev);
 
     if (!aurora_regbar_valid_access(addr))
         return -1;
 
     switch (addr) {
-    case AURORA_HW_BAR0_REG_0:
+    case AURORA_HW_REG_0:
         adev->regs[0] = value;
         break;
-    case AURORA_HW_BAR0_REG_1:
+    case AURORA_HW_REG_1:
         adev->regs[1] = value;
         break;
-    case AURORA_HW_BAR0_REG_2:
+    case AURORA_HW_REG_2:
         adev->regs[2] = value;
         break;
-    case AURORA_HW_BAR0_REG_3:
+    case AURORA_HW_REG_3:
         adev->regs[3] = value;
         break;
-    case AURORA_HW_BAR0_IRQ_0_RAISE:
+    case AURORA_HW_REG_IRQ_0_RAISE:
         pciemu_irq_raise(dev, 0);
         break;
-    case AURORA_HW_BAR0_IRQ_0_LOWER:
+    case AURORA_HW_REG_IRQ_0_LOWER:
         pciemu_irq_lower(dev, 0);
         break;
-    case AURORA_HW_BAR0_DMA_CFG_TXDESC_SRC...AURORA_HW_BAR0_DMA_DOORBELL_RING:
+    case AURORA_HW_REG_DMA_CFG_TXDESC_SRC...AURORA_HW_REG_DMA_DOORBELL_RING:
         aurora_dma_reg_write(dev, addr, value);
         break;
     }
@@ -57,7 +57,7 @@ int aurora_write_reg_by_addr(PCIEMUDevice *dev, uint64_t addr, uint64_t value)
 
 int aurora_read_reg_by_addr(PCIEMUDevice *dev, uint64_t addr, uint64_t *value)
 {
-    AURORADevice *adev = (AURORADevice *)dev->backend;
+    AURORADevice *adev = get_aurora_dev(dev);
 
     if (!value)
         return -1;
@@ -68,16 +68,16 @@ int aurora_read_reg_by_addr(PCIEMUDevice *dev, uint64_t addr, uint64_t *value)
     }
 
     switch (addr) {
-    case AURORA_HW_BAR0_REG_0:
+    case AURORA_HW_REG_0:
         *value = adev->regs[0];
         break;
-    case AURORA_HW_BAR0_REG_1:
+    case AURORA_HW_REG_1:
         *value  = adev->regs[1];
         break;
-    case AURORA_HW_BAR0_REG_2:
+    case AURORA_HW_REG_2:
         *value  = adev->regs[2];
         break;
-    case AURORA_HW_BAR0_REG_3:
+    case AURORA_HW_REG_3:
         *value  = adev->regs[3];
         break;
     }
@@ -104,7 +104,7 @@ void aurora_backend_init(PCIEMUDevice *dev)
 
 void aurora_backend_fini(PCIEMUDevice *dev)
 {
-	aurora_dma_fini(dev);
-	free(dev->backend);
-	dev->backend = NULL;
+    aurora_dma_fini(dev);
+    free(dev->backend);
+    dev->backend = NULL;
 }

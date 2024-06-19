@@ -1,11 +1,3 @@
-/* pciemu_ioctl.h - IOCTL definitions
- *
- * Copyright (c) 2023 Luiz Henrique Suraty Filho <luiz-dev@suraty.com>
- *
- * SPDX-License-Identifier: GPL-2.0
- *
- */
-
 #ifndef _PCIEMU_IOCTL_H_
 #define _PCIEMU_IOCTL_H_
 

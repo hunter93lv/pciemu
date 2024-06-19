@@ -1,10 +1,3 @@
-# Makefile for userspace programs
-#
-# Copyright (c) 2023 Luiz Henrique Suraty Filho <luiz-dev@suraty.com>
-#
-# SPDX-License-Identifier: GPL-2.0
-#
-
 KBLUE := "\e[1;36m"
 KNORM := "\e[0m"
 

@@ -1,11 +1,3 @@
-/* pciemu_module.c - Kernel module to control the pciemu virtual device.
- *
- * Copyright (c) 2023 Luiz Henrique Suraty Filho <luiz-dev@suraty.com>
- *
- * SPDX-License-Identifier: GPL-2.0
- *
- */
-
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/pci.h>
@@ -32,9 +24,7 @@ static int pciemu_open(struct inode *inode, struct file *fp)
 	unsigned int bar = iminor(inode);
 	struct pciemu_dev *pciemu_dev =
 		container_of(inode->i_cdev, struct pciemu_dev, cdev);
-	/* Only BAR 0 operations */
-	if (bar != PCIEMU_HW_BAR0)
-		return -ENXIO;
+
 	if (pciemu_dev->regbar.len == 0)
 		return -EIO;
 	fp->private_data = pciemu_dev;
@@ -111,6 +101,12 @@ static void pciemu_dev_clean(struct pciemu_dev *pciemu_dev)
 	pciemu_dev->membar.len = 0;
 	if (pciemu_dev->membar.mmio)
 		pci_iounmap(pciemu_dev->pdev, pciemu_dev->membar.mmio);
+
+	pciemu_dev->internal_bar.start = 0;
+	pciemu_dev->internal_bar.end = 0;
+	pciemu_dev->internal_bar.len = 0;
+	if (pciemu_dev->internal_bar.mmio)
+		pci_iounmap(pciemu_dev->pdev, pciemu_dev->internal_bar.mmio);
 }
 
 static int pciemu_dev_init(struct pciemu_dev *pciemu_dev, struct pci_dev *pdev)
@@ -118,22 +114,32 @@ static int pciemu_dev_init(struct pciemu_dev *pciemu_dev, struct pci_dev *pdev)
 	pciemu_dev->pdev = pdev;
 
 	/* Initialize struct with BAR 0 info */
-	pciemu_dev->regbar.start = pci_resource_start(pdev, PCIEMU_HW_BAR0);
-	pciemu_dev->regbar.end = pci_resource_end(pdev, PCIEMU_HW_BAR0);
-	pciemu_dev->regbar.len = pci_resource_len(pdev, PCIEMU_HW_BAR0);
-	pciemu_dev->regbar.mmio = pci_iomap(pdev, PCIEMU_HW_BAR0, pciemu_dev->regbar.len);
+	pciemu_dev->regbar.start = pci_resource_start(pdev, PCIEMU_HW_REG_BAR);
+	pciemu_dev->regbar.end = pci_resource_end(pdev, PCIEMU_HW_REG_BAR);
+	pciemu_dev->regbar.len = pci_resource_len(pdev, PCIEMU_HW_REG_BAR);
+	pciemu_dev->regbar.mmio = pci_iomap(pdev, PCIEMU_HW_REG_BAR, pciemu_dev->regbar.len);
 	if (!pciemu_dev->regbar.mmio) {
-		dev_err(&(pdev->dev), "cannot map BAR %u\n", PCIEMU_HW_BAR0);
+		dev_err(&(pdev->dev), "cannot map BAR %u\n", PCIEMU_HW_REG_BAR);
 		pciemu_dev_clean(pciemu_dev);
 		return -ENOMEM;
 	}
 
-	pciemu_dev->membar.start = pci_resource_start(pdev, PCIEMU_HW_BAR1);
-	pciemu_dev->membar.end = pci_resource_end(pdev, PCIEMU_HW_BAR1);
-	pciemu_dev->membar.len = pci_resource_len(pdev, PCIEMU_HW_BAR1);
-	pciemu_dev->membar.mmio = pci_iomap(pdev, PCIEMU_HW_BAR1, pciemu_dev->membar.len);
+	pciemu_dev->membar.start = pci_resource_start(pdev, PCIEMU_HW_MEM_BAR);
+	pciemu_dev->membar.end = pci_resource_end(pdev, PCIEMU_HW_MEM_BAR);
+	pciemu_dev->membar.len = pci_resource_len(pdev, PCIEMU_HW_MEM_BAR);
+	pciemu_dev->membar.mmio = pci_iomap(pdev, PCIEMU_HW_MEM_BAR, pciemu_dev->membar.len);
 	if (!pciemu_dev->membar.mmio) {
-		dev_err(&(pdev->dev), "cannot map BAR %u\n", PCIEMU_HW_BAR1);
+		dev_err(&(pdev->dev), "cannot map BAR %u\n", PCIEMU_HW_MEM_BAR);
+		pciemu_dev_clean(pciemu_dev);
+		return -ENOMEM;
+	}
+
+	pciemu_dev->internal_bar.start = pci_resource_start(pdev, PCIEMU_HW_INT_BAR);
+	pciemu_dev->internal_bar.end = pci_resource_end(pdev, PCIEMU_HW_INT_BAR);
+	pciemu_dev->internal_bar.len = pci_resource_len(pdev, PCIEMU_HW_INT_BAR);
+	pciemu_dev->internal_bar.mmio = pci_iomap(pdev, PCIEMU_HW_INT_BAR, pciemu_dev->internal_bar.len);
+	if (!pciemu_dev->internal_bar.mmio) {
+		dev_err(&(pdev->dev), "cannot map BAR %u\n", PCIEMU_HW_INT_BAR);
 		pciemu_dev_clean(pciemu_dev);
 		return -ENOMEM;
 	}
@@ -186,7 +192,7 @@ static int pciemu_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 
 	/* verify no other device is already using the same address resource */
 	mem_bars = pci_select_bars(pdev, IORESOURCE_MEM);
-	if ((mem_bars & (1 << PCIEMU_HW_BAR0)) == 0) {
+	if ((mem_bars & (1 << PCIEMU_HW_REG_BAR)) == 0) {
 		dev_err(&(pdev->dev), "pci_select_bars: bar0 not available\n");
 		goto err_select_region;
 	}
@@ -205,7 +211,7 @@ static int pciemu_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	}
 
 	/* Get device number range (base_minor = bar0 and count = nbr of bars)*/
-	err = alloc_chrdev_region(&dev_num, PCIEMU_HW_BAR0, PCIEMU_HW_BAR_CNT,
+	err = alloc_chrdev_region(&dev_num, 0, 1,
 				  "pciemu");
 	if (err) {
 		dev_err(&(pdev->dev), "alloc_chrdev_region failed\n");
@@ -264,7 +270,7 @@ err_device_create:
 
 err_cdev_add:
 	unregister_chrdev_region(MKDEV(pciemu_dev->major, pciemu_dev->minor),
-				 PCIEMU_HW_BAR_CNT);
+				 1);
 
 err_alloc_chrdev:
 	pciemu_dev_clean(pciemu_dev);
@@ -295,7 +301,7 @@ static void pciemu_remove(struct pci_dev *pdev)
 		       MKDEV(pciemu_dev->major, pciemu_dev->minor));
 	cdev_del(&pciemu_dev->cdev);
 	unregister_chrdev_region(MKDEV(pciemu_dev->major, pciemu_dev->minor),
-				 PCIEMU_HW_BAR_CNT);
+				 1);
 	pciemu_dev_clean(pciemu_dev);
 	pci_clear_master(pdev);
 	free_irq(pciemu_dev->irq.irq_num, pciemu_dev);

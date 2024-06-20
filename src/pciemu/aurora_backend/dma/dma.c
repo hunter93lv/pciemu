@@ -15,10 +15,9 @@ static inline bool aurora_dma_valid_access(uint64_t addr)
     return (AURORA_HW_REG_DMA_CFG_TXDESC_SRC <= addr && addr <= AURORA_HW_REG_DMA_DOORBELL_RING);
 }
 
-static inline dma_addr_t aurora_dma_addr_mask(PCIEMUDevice *dev,
+static inline dma_addr_t aurora_dma_addr_mask(AURORADevice *adev,
                                               dma_addr_t addr)
 {
-    AURORADevice *adev = get_aurora_dev(dev);
     dma_addr_t masked = addr & adev->dma.config.mask;
     if (masked != addr) {
         qemu_log_mask(LOG_GUEST_ERROR,
@@ -34,9 +33,8 @@ static inline bool aurora_dma_inside_device_boundaries(dma_addr_t addr)
             addr <= AURORA_HW_DMA_AREA_START + AURORA_HW_DMA_AREA_SIZE);
 }
 
-static void aurora_dma_execute(PCIEMUDevice *dev)
+static void aurora_dma_execute(AURORADevice *adev)
 {
-    AURORADevice *adev = get_aurora_dev(dev);
     DMAEngine *dma = &adev->dma;
     if (dma->config.cmd != AURORA_HW_DMA_DIRECTION_TO_DEVICE &&
         dma->config.cmd != AURORA_HW_DMA_DIRECTION_FROM_DEVICE)
@@ -54,9 +52,9 @@ static void aurora_dma_execute(PCIEMUDevice *dev)
             qemu_log_mask(LOG_GUEST_ERROR, "dst register out of bounds \n");
             return;
         }
-        dma_addr_t src = aurora_dma_addr_mask(dev, dma->config.txdesc.src);
+        dma_addr_t src = aurora_dma_addr_mask(adev, dma->config.txdesc.src);
         dma_addr_t dst = dma->config.txdesc.dst - AURORA_HW_DMA_AREA_START;
-        int err = pci_dma_read(&dev->pci_dev, src, dma->buff + dst,
+        int err = pci_dma_read(&(get_pciemu_dev(adev)->pci_dev), src, dma->buff + dst,
                                dma->config.txdesc.len);
         if (err) {
             qemu_log_mask(LOG_GUEST_ERROR, "pci_dma_read err=%d\n", err);
@@ -75,49 +73,45 @@ static void aurora_dma_execute(PCIEMUDevice *dev)
             return;
         }
         dma_addr_t src = dma->config.txdesc.src - AURORA_HW_DMA_AREA_START;
-        dma_addr_t dst = aurora_dma_addr_mask(dev, dma->config.txdesc.dst);
-        int err = pci_dma_write(&dev->pci_dev, dst, dma->buff + src,
+        dma_addr_t dst = aurora_dma_addr_mask(adev, dma->config.txdesc.dst);
+        int err = pci_dma_write(&(get_pciemu_dev(adev)->pci_dev), dst, dma->buff + src,
                                 dma->config.txdesc.len);
         if (err) {
             qemu_log_mask(LOG_GUEST_ERROR, "pci_dma_write err=%d\n", err);
         }
     }
-    pciemu_irq_raise(dev, AURORA_HW_IRQ_DMA_ENDED_VECTOR);
+    pciemu_irq_raise(get_pciemu_dev(adev), AURORA_HW_IRQ_DMA_ENDED_VECTOR);
 }
 
-static void aurora_dma_config_txdesc_src(PCIEMUDevice *dev, dma_addr_t src)
+static void aurora_dma_config_txdesc_src(AURORADevice *adev, dma_addr_t src)
 {
-    AURORADevice *adev = get_aurora_dev(dev);
     DMAStatus status = qatomic_read(&adev->dma.status);
     if (status == DMA_STATUS_IDLE)
         adev->dma.config.txdesc.src = src;
 }
 
-static void aurora_dma_config_txdesc_dst(PCIEMUDevice *dev, dma_addr_t dst)
+static void aurora_dma_config_txdesc_dst(AURORADevice *adev, dma_addr_t dst)
 {
-    AURORADevice *adev = get_aurora_dev(dev);
     DMAStatus status = qatomic_read(&adev->dma.status);
     if (status == DMA_STATUS_IDLE)
         adev->dma.config.txdesc.dst = dst;
 }
 
-static void aurora_dma_config_txdesc_len(PCIEMUDevice *dev, dma_size_t size)
+static void aurora_dma_config_txdesc_len(AURORADevice *adev, dma_size_t size)
 {
-    AURORADevice *adev = get_aurora_dev(dev);
     DMAStatus status = qatomic_read(&adev->dma.status);
     if (status == DMA_STATUS_IDLE)
         adev->dma.config.txdesc.len = size;
 }
 
-static void aurora_dma_config_cmd(PCIEMUDevice *dev, dma_cmd_t cmd)
+static void aurora_dma_config_cmd(AURORADevice *adev, dma_cmd_t cmd)
 {
-    AURORADevice *adev = get_aurora_dev(dev);
     DMAStatus status = qatomic_read(&adev->dma.status);
     if (status == DMA_STATUS_IDLE)
         adev->dma.config.cmd = cmd;
 }
 
-static void aurora_dma_doorbell_ring(PCIEMUDevice *dev)
+static void aurora_dma_doorbell_ring(AURORADevice *adev)
 {
     /* atomic access of dma.status may not be neeeded as the MMIO access
      * will be normally serialized.
@@ -125,12 +119,11 @@ static void aurora_dma_doorbell_ring(PCIEMUDevice *dev)
      * atomic accessing regions, especially if the device is a bit more
      * complex.
      */
-    AURORADevice *adev = get_aurora_dev(dev);
     DMAStatus status = qatomic_cmpxchg(&adev->dma.status, DMA_STATUS_IDLE,
                                        DMA_STATUS_EXECUTING);
     if (status == DMA_STATUS_EXECUTING)
         return;
-    aurora_dma_execute(dev);
+    aurora_dma_execute(adev);
     qatomic_set(&adev->dma.status, DMA_STATUS_IDLE);
 }
 
@@ -138,35 +131,34 @@ static void aurora_dma_doorbell_ring(PCIEMUDevice *dev)
  *  Public
  * -----------------------------------------------------------------------------
  */
-int aurora_dma_reg_write(PCIEMUDevice *dev, uint64_t addr, uint64_t value)
+int aurora_dma_reg_write(AURORADevice *adev, uint64_t addr, uint64_t value)
 {
     if (!aurora_dma_valid_access(addr))
         return -1;
 
     switch (addr) {
     case AURORA_HW_REG_DMA_CFG_TXDESC_SRC:
-        aurora_dma_config_txdesc_src(dev, value);
+        aurora_dma_config_txdesc_src(adev, value);
         break;
     case AURORA_HW_REG_DMA_CFG_TXDESC_DST:
-        aurora_dma_config_txdesc_dst(dev, value);
+        aurora_dma_config_txdesc_dst(adev, value);
         break;
     case AURORA_HW_REG_DMA_CFG_TXDESC_LEN:
-        aurora_dma_config_txdesc_len(dev, value);
+        aurora_dma_config_txdesc_len(adev, value);
         break;
     case AURORA_HW_REG_DMA_CFG_CMD:
-        aurora_dma_config_cmd(dev, value);
+        aurora_dma_config_cmd(adev, value);
         break;
     case AURORA_HW_REG_DMA_DOORBELL_RING:
-        aurora_dma_doorbell_ring(dev);
+        aurora_dma_doorbell_ring(adev);
         break;
     }
 
     return 0;
 }
 
-void aurora_dma_reset(PCIEMUDevice *dev)
+void aurora_dma_reset(AURORADevice *adev)
 {
-    AURORADevice *adev = get_aurora_dev(dev);
     DMAEngine *dma = &adev->dma;
     dma->status = DMA_STATUS_IDLE;
     dma->config.txdesc.src = 0;
@@ -178,19 +170,17 @@ void aurora_dma_reset(PCIEMUDevice *dev)
     memset(dma->buff, 0, AURORA_HW_DMA_AREA_SIZE);
 }
 
-void aurora_dma_init(PCIEMUDevice *dev)
+void aurora_dma_init(AURORADevice *adev)
 {
-    AURORADevice *adev = get_aurora_dev(dev);
     /* Basically reset the DMA engine */
-    aurora_dma_reset(dev);
+    aurora_dma_reset(adev);
 
     /* and set the DMA mask, which does not change */
     adev->dma.config.mask = DMA_BIT_MASK(AURORA_HW_DMA_ADDR_CAPABILITY);
 }
 
-void aurora_dma_fini(PCIEMUDevice *dev)
+void aurora_dma_fini(AURORADevice *adev)
 {
-    AURORADevice *adev = get_aurora_dev(dev);
-    aurora_dma_reset(dev);
+    aurora_dma_reset(adev);
     adev->dma.status = DMA_STATUS_OFF;
 }

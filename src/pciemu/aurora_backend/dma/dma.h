@@ -5,9 +5,9 @@
 #include "hw/pci/pci.h"
 #include "pciemu/aurora_backend/aurora_hw.h"
 
-#define DMA_BIT_MASK(n) (((n) == 64) ? ~0ULL : ((1ULL << (n)) - 1))
+typedef struct AURORADevice AURORADevice;
 
-typedef struct PCIEMUDevice PCIEMUDevice;
+#define DMA_BIT_MASK(n) (((n) == 64) ? ~0ULL : ((1ULL << (n)) - 1))
 
 typedef uint64_t dma_cmd_t;
 
@@ -40,12 +40,12 @@ typedef struct DMAEngine {
 } DMAEngine;
 
 
-int aurora_dma_reg_write(PCIEMUDevice *dev, uint64_t addr, uint64_t value);
+int aurora_dma_reg_write(AURORADevice *adev, uint64_t addr, uint64_t value);
 
-void aurora_dma_reset(PCIEMUDevice *dev);
+void aurora_dma_reset(AURORADevice *adev);
 
-void aurora_dma_init(PCIEMUDevice *dev);
+void aurora_dma_init(AURORADevice *adev);
 
-void aurora_dma_fini(PCIEMUDevice *dev);
+void aurora_dma_fini(AURORADevice *adev);
 
 #endif /* AURORA_DMA_H */

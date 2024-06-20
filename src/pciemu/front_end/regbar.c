@@ -49,8 +49,7 @@ void pciemu_regbar_init(PCIEMUDevice *dev, Error **errp)
 
     if (PCIEMU_HW_REG_BAR_PREFETCHABLE)
         bar_type |= PCI_BASE_ADDRESS_MEM_PREFETCH;
-    /* BAR 0 will have memory region described in mmio (pciemu_mmio_ops) */
-    /* Keeping the BAR size as the page size of the guest */
+
     memory_region_init_io(&dev->reg, OBJECT(dev), &pciemu_regbar_ops, dev,
                           "pciemu-reg", PCIEMU_HW_REG_BAR_SIZE);
     pci_register_bar(&dev->pci_dev, PCIEMU_HW_REG_BAR, bar_type, &dev->reg);

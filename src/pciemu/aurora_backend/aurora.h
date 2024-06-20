@@ -16,21 +16,30 @@ static inline AURORADevice *get_aurora_dev(PCIEMUDevice *dev)
     if (!dev)
         return NULL;
 
-    return (AURORADevice *)dev->backend;
+    return (AURORADevice *)(dev->backend);
 }
 
-int aurora_write_devmem_by_addr(PCIEMUDevice *dev, uint64_t addr, uint64_t value);
+static inline PCIEMUDevice *get_pciemu_dev(AURORADevice *adev)
+{
+    if (!adev)
+        return NULL;
 
-int aurora_read_devmem_by_addr(PCIEMUDevice *dev, uint64_t addr, uint64_t *value);
+    return adev->parent;
+}
 
-int aurora_write_reg_by_addr(PCIEMUDevice *dev, uint64_t addr, uint64_t value);
 
-int aurora_read_reg_by_addr(PCIEMUDevice *dev, uint64_t addr, uint64_t *value);
+int aurora_write_devmem_by_addr(AURORADevice *adev, uint64_t addr, uint64_t value);
 
-void aurora_backend_reset(PCIEMUDevice *dev);
+int aurora_read_devmem_by_addr(AURORADevice *adev, uint64_t addr, uint64_t *value);
+
+int aurora_write_reg_by_addr(AURORADevice *adev, uint64_t addr, uint64_t value);
+
+int aurora_read_reg_by_addr(AURORADevice *adev, uint64_t addr, uint64_t *value);
+
+void aurora_backend_reset(AURORADevice *adev);
 
 void aurora_backend_init(PCIEMUDevice *dev);
 
-void aurora_backend_fini(PCIEMUDevice *dev);
+void aurora_backend_fini(AURORADevice *adev);
 
 #endif /* AURORA_H */

@@ -11,19 +11,18 @@ static inline bool aurora_regbar_valid_access(uint64_t addr)
     return (AURORA_HW_REGBAR_START <= addr && addr <= AURORA_HW_REGBAR_END);
 }
 
-int aurora_write_devmem_by_addr(PCIEMUDevice *dev, uint64_t addr, uint64_t value)
+int aurora_write_devmem_by_addr(AURORADevice *adev, uint64_t addr, uint64_t value)
 {
     return tcp_send_mem_write_req(addr, value);
 }
 
-int aurora_read_devmem_by_addr(PCIEMUDevice *dev, uint64_t addr, uint64_t *value)
+int aurora_read_devmem_by_addr(AURORADevice *adev, uint64_t addr, uint64_t *value)
 {
     return tcp_send_mem_read_req(addr, value);
 }
 
-int aurora_write_reg_by_addr(PCIEMUDevice *dev, uint64_t addr, uint64_t value)
+int aurora_write_reg_by_addr(AURORADevice *adev, uint64_t addr, uint64_t value)
 {
-    AURORADevice *adev = get_aurora_dev(dev);
 
     if (!aurora_regbar_valid_access(addr))
         return -1;
@@ -42,22 +41,21 @@ int aurora_write_reg_by_addr(PCIEMUDevice *dev, uint64_t addr, uint64_t value)
         adev->regs[3] = value;
         break;
     case AURORA_HW_REG_IRQ_0_RAISE:
-        pciemu_irq_raise(dev, 0);
+        pciemu_irq_raise(get_pciemu_dev(adev), 0);
         break;
     case AURORA_HW_REG_IRQ_0_LOWER:
-        pciemu_irq_lower(dev, 0);
+        pciemu_irq_lower(get_pciemu_dev(adev), 0);
         break;
     case AURORA_HW_REG_DMA_CFG_TXDESC_SRC...AURORA_HW_REG_DMA_DOORBELL_RING:
-        aurora_dma_reg_write(dev, addr, value);
+        aurora_dma_reg_write(adev, addr, value);
         break;
     }
 
     return 0;
 }
 
-int aurora_read_reg_by_addr(PCIEMUDevice *dev, uint64_t addr, uint64_t *value)
+int aurora_read_reg_by_addr(AURORADevice *adev, uint64_t addr, uint64_t *value)
 {
-    AURORADevice *adev = get_aurora_dev(dev);
 
     if (!value)
         return -1;
@@ -85,9 +83,9 @@ int aurora_read_reg_by_addr(PCIEMUDevice *dev, uint64_t addr, uint64_t *value)
     return 0;
 }
 
-void aurora_backend_reset(PCIEMUDevice *dev)
+void aurora_backend_reset(AURORADevice *adev)
 {
-    aurora_dma_reset(dev);
+    aurora_dma_reset(adev);
 }
 
 void aurora_backend_init(PCIEMUDevice *dev)
@@ -99,12 +97,13 @@ void aurora_backend_init(PCIEMUDevice *dev)
     }
 
     dev->backend = (void *)adev;
-    aurora_dma_init(dev);
+    adev->parent = dev;
+    aurora_dma_init(adev);
 }
 
-void aurora_backend_fini(PCIEMUDevice *dev)
+void aurora_backend_fini(AURORADevice *adev)
 {
-    aurora_dma_fini(dev);
-    free(dev->backend);
-    dev->backend = NULL;
+    aurora_dma_fini(adev);
+    adev->parent->backend = NULL;
+    free(adev);
 }
